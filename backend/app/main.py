@@ -1,0 +1,194 @@
+import sys
+from pathlib import Path
+
+# Ensure backend/ root is in sys.path so that `nodes.*` and `executor.*` are importable
+_backend_dir = Path(__file__).parent.parent  # …/backend/
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+from app.core.config import settings
+from app.api.v1.auth import router as auth_router
+from app.api.v1.workflows import router as workflow_router
+from app.api.v1.nodes import router as nodes_router
+from app.api.v1.notifications import router as notification_router
+from app.api.v1.marketplace import router as marketplace_router
+from app.api.v1.templates import router as template_router
+from app.api.v1.integrations import router as integration_router
+from app.api.v1.analytics import router as analytics_router
+from app.api.v1.audit import router as audit_router
+from app.api.v1.backup import router as backup_router
+from app.api.v1.telegram import router as telegram_router
+from app.api.v1.credentials import router as credentials_router
+from app.api.v1.users import router as users_router          # FlowMind AI: Module 2 RBAC
+from app.api.v1.team import router as team_router            # FlowMind AI: Team API
+from app.api.routes.billing import router as billing_router
+import logging
+import uvicorn
+import asyncio
+from app.services.backup_service import backup_service
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
+
+# Create FastAPI instance
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description=settings.DESCRIPTION,
+    version=settings.API_VERSION,
+    debug=settings.DEBUG,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
+
+# Add CORS middleware
+# Ensure common dev ports are included for local development
+cors_origins = list(settings.CORS_ORIGINS) if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)]
+for port in ["http://localhost:3000", "http://localhost:3001", "http://localhost:3005"]:
+    if port not in cors_origins:
+        cors_origins.append(port)
+
+# Log CORS origins for debugging
+logger.info(f"CORS allowed origins: {cors_origins}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add trusted host middleware for security
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["localhost", "127.0.0.1", "*.flowmindai.com", "*.railway.app", "*.up.railway.app"]
+)
+
+
+# Global exception handler
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": exc.detail,
+            "error": "HTTP_EXCEPTION",
+            "status_code": exc.status_code
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "message": "Internal server error",
+            "error": "INTERNAL_SERVER_ERROR",
+            "status_code": 500
+        }
+    )
+
+
+# Health check endpoint
+@app.get("/")
+async def root():
+    return {
+        "success": True,
+        "message": "FlowMind AI API is running",
+        "version": settings.API_VERSION,
+        "environment": settings.ENVIRONMENT
+    }
+
+
+@app.get("/health")
+async def health_check():
+    return {
+        "success": True,
+        "message": "API is healthy",
+        "version": settings.API_VERSION,
+        "environment": settings.ENVIRONMENT
+    }
+
+
+# Include routers
+app.include_router(auth_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(workflow_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(nodes_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(notification_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(marketplace_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(template_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(integration_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(analytics_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(audit_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(backup_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(telegram_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(credentials_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(users_router, prefix=f"/api/{settings.API_VERSION}")   # Module 2 RBAC
+app.include_router(team_router, prefix=f"/api/{settings.API_VERSION}")    # FlowMind AI: Team API
+app.include_router(billing_router)
+
+
+# Background task for scheduled backups
+async def scheduled_backup_task():
+    """Run scheduled backups every 24 hours"""
+    while True:
+        try:
+            await asyncio.sleep(24 * 60 * 60)  # Wait 24 hours
+            logger.info("Running scheduled backup process...")
+            result = await backup_service.process_scheduled_backups()
+            logger.info(f"Scheduled backup completed: {result}")
+        except Exception as e:
+            logger.error(f"Error in scheduled backup task: {str(e)}")
+            await asyncio.sleep(3600)  # Wait 1 hour before retrying on error
+
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info(f"Starting {settings.PROJECT_NAME}")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Debug mode: {settings.DEBUG}")
+    logger.info(f"API Version: {settings.API_VERSION}")
+    logger.info(f"CORS Origins from config: {settings.CORS_ORIGINS}")
+    logger.info(f"CORS Origins after processing: {cors_origins}")
+
+    # Initialise the node registry (auto-discovers all BaseNode subclasses)
+    try:
+        from nodes.registry import get_registry
+        registry = get_registry()
+        logger.info(f"NodeRegistry initialised: {len(registry)} node types registered")
+    except Exception as exc:
+        logger.error(f"Failed to initialise NodeRegistry: {exc}")
+
+    # Start scheduled backup task
+    asyncio.create_task(scheduled_backup_task())
+    logger.info("Scheduled backup task started (runs every 24 hours)")
+
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info(f"Shutting down {settings.PROJECT_NAME}")
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=settings.API_HOST,
+        port=settings.API_PORT,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower()
+    )

@@ -1,0 +1,221 @@
+"use client";
+
+import React from "react";
+import {
+  Play,
+  Save,
+  Settings,
+  Download,
+  Upload,
+  Home,
+  ChevronDown,
+  Bot,
+  Square,
+  Store,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+
+interface WorkflowToolbarProps {
+  showAssistant?: boolean;
+  onToggleAssistant?: () => void;
+  assistantMinimized?: boolean;
+  onExecute?: () => void;
+  onSave?: () => void;
+  onExport?: () => void;
+  onImport?: () => void;
+  onPublish?: () => void;
+  canPublish?: boolean;
+  isExecuting?: boolean;
+  workflowName: string;
+  onRenameWorkflow: (name: string) => void;
+  isScheduled?: boolean;
+  isWebhookListening?: boolean;
+}
+
+export function WorkflowToolbar({
+  showAssistant = true,
+  onToggleAssistant,
+  assistantMinimized = false,
+  onExecute,
+  onSave,
+  onExport,
+  onImport,
+  onPublish,
+  canPublish = false,
+  isExecuting = false,
+  workflowName,
+  onRenameWorkflow,
+  isScheduled = false,
+  isWebhookListening = false,
+}: WorkflowToolbarProps) {
+  const router = useRouter();
+
+  return (
+    <div className="h-14 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-4">
+      {/* Left Section - Logo & Navigation */}
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 text-white hover:text-[#1D4ED8] transition-colors"
+        >
+          <Home className="w-5 h-5" />
+          <span className="font-semibold">FlowMind AI</span>
+        </button>
+        
+        <div className="text-zinc-400 text-sm">|</div>
+        
+      <div className="flex items-center gap-1">
+          <EditableWorkflowName name={workflowName} onRename={onRenameWorkflow} />
+          <ChevronDown className="w-4 h-4 text-zinc-400" />
+        </div>
+      </div>
+
+      {/* Center Section - Actions */}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={onImport}
+          variant="ghost"
+          size="sm"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 px-3 gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          <span className="text-sm">Import</span>
+        </Button>
+
+        <Button
+          onClick={onExport}
+          variant="ghost"
+          size="sm"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 px-3 gap-2"
+        >
+          <Download className="w-4 h-4" />
+          <span className="text-sm">Export</span>
+        </Button>
+
+        {canPublish && (
+          <>
+            <div className="w-px h-6 bg-zinc-700 mx-1" />
+            <Button
+              onClick={onPublish}
+              variant="ghost"
+              size="sm"
+              className="text-[#1D4ED8] bg-[#1D4ED8]/10 hover:bg-[#1D4ED8]/20 h-8 px-3 gap-2 animate-in fade-in slide-in-from-top-1 duration-300"
+            >
+              <Store className="w-4 h-4" />
+              <span className="text-sm font-medium">Publish</span>
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Right Section - Execute & Settings */}
+      <div className="flex items-center gap-2">
+        {/* AI Assistant Toggle */}
+        <Button
+          onClick={onToggleAssistant}
+          variant="ghost"
+          size="sm"
+          className={`h-8 px-3 gap-2 ${
+            showAssistant 
+              ? "text-[#1D4ED8] bg-[#1D4ED8]/10 hover:bg-[#1D4ED8]/20" 
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span className="text-sm">
+            {assistantMinimized ? "AI" : "Assistant"}
+            {showAssistant && (
+              <span className="ml-1 text-xs opacity-75">
+                {assistantMinimized ? "●" : "online"}
+              </span>
+            )}
+          </span>
+        </Button>
+        
+        <div className="w-px h-6 bg-zinc-700" />
+        
+        <Button
+          onClick={onSave}
+          variant="ghost"
+          size="sm"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 px-3 gap-2"
+        >
+          <Save className="w-4 h-4" />
+          <span className="text-sm">Save</span>
+        </Button>
+        
+        <Button
+          onClick={onExecute}
+          disabled={isExecuting && !isScheduled && !isWebhookListening}
+          size="sm"
+          className={`h-8 px-4 gap-2 disabled:opacity-50 ${
+            isScheduled || isWebhookListening
+              ? "bg-red-600 hover:bg-red-700 text-white"
+              : "bg-[#1D4ED8] hover:bg-[#1E40AF] text-white"
+          }`}
+        >
+          {isScheduled ? (
+            <>
+              <Square className="w-4 h-4" />
+              <span className="text-sm">Stop Scheduler</span>
+            </>
+          ) : isWebhookListening ? (
+            <>
+              <Square className="w-4 h-4" />
+              <span className="text-sm">Stop Listening</span>
+            </>
+          ) : isExecuting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Executing...</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              <span className="text-sm">Execute</span>
+            </>
+          )}
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 px-3"
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EditableWorkflowName({ name, onRename }: { name: string; onRename: (n: string) => void }) {
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState(name);
+  React.useEffect(() => setValue(name), [name]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => { setEditing(false); onRename(value.trim() || 'Untitled Workflow'); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') { setEditing(false); setValue(name); }
+        }}
+        className="bg-transparent border-b border-zinc-600 focus:border-[#1D4ED8] outline-none text-sm text-white px-1"
+        placeholder="Workflow name"
+      />
+    );
+  }
+  return (
+    <button onClick={() => setEditing(true)} className="text-sm text-white hover:text-[#1D4ED8]">
+      {name}
+    </button>
+  );
+}
+
+export default WorkflowToolbar;

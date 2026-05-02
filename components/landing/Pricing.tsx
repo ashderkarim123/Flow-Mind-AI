@@ -1,0 +1,381 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Check, ArrowRight, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+const plans = [
+  {
+    name: "Basic",
+    monthlyPrice: "$15",
+    yearlyPrice: "$144", // Should show as $12/month when yearly selected
+    yearlyMonthlyEquivalent: "$12", // 144 / 12 = 12
+    currency: "",
+    description: "Everything you need to supercharge your productivity.",
+    features: [
+      "20 design generations/month",
+      "Low-res downloads",
+      "Basic style presets",
+      "Limited customization options"
+    ],
+    popular: false,
+    cta: "Subscribe",
+    discount: "",
+  },
+  {
+    name: "Pro",
+    monthlyPrice: "$17",
+    yearlyPrice: "156", // 13 * 12 = 156
+    yearlyMonthlyEquivalent: "$13", // Shows as $13/month when yearly selected
+    currency: "",
+    description: "Unlock a new level of your personal productivity.",
+    features: [
+      "Everything in Free",
+      "Enigma AI",
+      "Unlimited design generations",
+      "Custom Themes",
+      "High-resolution exports",
+      "Custom Extensions",
+      "Developer Tools",
+    ],
+    popular: true,
+    cta: "Subscribe",
+    discount: "-20%",
+  },
+  {
+    name: "Team",
+    monthlyPrice: "$37",
+    yearlyPrice: "384", // 32 * 12 = 384
+    yearlyMonthlyEquivalent: "$32", // Shows as $32/month when yearly selected
+    currency: "",
+    description: "Everything you need to supercharge your productivity.",
+    features: [
+      "Everything in Free",
+      "Unlimited Shared Commands",
+      "Unlimited Shared Quicklinks",
+      "Priority support",
+    ],
+    popular: false,
+    cta: "Subscribe",
+    discount: "-20%",
+  },
+];
+
+const PricingCard = ({ plan, index, isYearly, onSubscribeClick }: { plan: typeof plans[0], index: number, isYearly: boolean, onSubscribeClick: () => void }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: index * 0.1 }}
+      viewport={{ once: true }}
+      className={`relative h-full ${
+        plan.popular ? 'z-20 lg:scale-[1.02] transform' : 'z-10'
+      } ${
+        index === 0 ? 'lg:mr-[-8px]' : index === 2 ? 'lg:ml-[-8px]' : ''
+      }`}
+    >
+      {/* Gradient border for popular plan */}
+      {plan.popular && (
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#1D4ED8] to-[#172554] p-[2px]">
+          <div className="h-full w-full rounded-2xl bg-[#1B1B1C]" />
+        </div>
+      )}
+      
+      <div className={`relative ${
+        plan.popular ? 'border-0' : 'border border-zinc-800'
+      } rounded-2xl p-7 h-full flex flex-col transition-all duration-200 ${
+        plan.popular ? 'bg-transparent lg:min-h-[600px]' : 'bg-[#1B1B1C] lg:min-h-[540px]'
+      }`}>
+        {/* Header */}
+        <div className="mb-6">
+          <div className="mb-3">
+            <h3 className={`text-lg ${plan.popular ? 'font-bold text-[#1D4ED8]' : 'font-medium text-white'}`}>{plan.name}</h3>
+          </div>
+          <p className="text-zinc-400 text-sm leading-relaxed">{plan.description}</p>
+        </div>
+
+        {/* Price */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-8">
+            {plan.currency && <span className="text-white text-2xl">{plan.currency}</span>}
+            <span className="text-4xl font-bold text-white">
+              {isYearly ? plan.yearlyMonthlyEquivalent : plan.monthlyPrice}
+            </span>
+            <span className="text-zinc-400">
+              {isYearly ? " / month" : " / month"}
+            </span>
+            {plan.discount && (
+              <span className="ml-2 text-[10px] px-2 py-1 rounded-full bg-[#1D4ED8] text-white font-semibold">
+                {plan.discount}
+              </span>
+            )}
+          </div>
+          {/* Gradient line */}
+          <div className="h-[1px] bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+        </div>
+
+        {/* Features */}
+        <div className="flex-grow mb-6">
+          <p className="text-zinc-400 text-sm mb-3">What's included</p>
+          <ul className="space-y-3">
+            {plan.features.map((feature, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <Image
+                  src={plan.popular ? "/assets/pricing/tick-circle-2.svg" : "/assets/pricing/tick-circle.svg"}
+                  alt="Check"
+                  width={20}
+                  height={20}
+                  className="flex-shrink-0 mt-0.5"
+                />
+                <span className="text-zinc-300 text-sm leading-relaxed">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* CTA Button */}
+        <div className="mt-auto flex justify-center">
+          <div className="relative group">
+            {/* Background glow effect */}
+            <div className="absolute -inset-1 bg-gradient-to-b from-[#B48B70] to-[#69462E] rounded-md opacity-50 blur-sm group-hover:opacity-75 group-hover:blur-md transition-all duration-300" />
+            
+            {/* Button with gradient border */}
+            <div className="relative bg-gradient-to-b from-[#B48B70] to-[#69462E] p-[1px] rounded-md">
+              <Button
+                onClick={onSubscribeClick}
+                className="relative py-4 px-6 rounded-md font-normal text-base transition-all duration-300 flex items-center justify-center gap-2 bg-[#3D210E] hover:bg-[#5A2F17] text-white min-w-[100px] border-0 group-hover:shadow-lg"
+              >
+                {plan.cta}
+                <Image
+                  src="/assets/pricing/arrow.svg"
+                  alt="Arrow"
+                  width={8}
+                  height={8}
+                  className="ml-1 transition-transform group-hover:translate-x-0.5"
+                />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const BillingToggle = ({ isYearly, setIsYearly }: { isYearly: boolean, setIsYearly: (value: boolean) => void }) => {
+  return (
+    <div className="flex items-center justify-center mb-12">
+      <div className="relative bg-[#192124] border border-zinc-700 rounded-full p-1 backdrop-blur-sm">
+        <div className="flex relative">
+          <button
+            onClick={() => setIsYearly(false)}
+            className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
+              !isYearly
+                ? 'text-white/80'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setIsYearly(true)}
+            className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
+              isYearly
+                ? 'text-white/80'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Yearly
+          </button>
+          {/* Active background */}
+          <div
+            className={`absolute top-1 bottom-1 bg-[#484D4D] rounded-full transition-all duration-300 ease-out ${
+              isYearly ? 'left-[calc(50%+2px)] right-1' : 'left-1 right-[calc(50%+2px)]'
+            }`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SubscribeModal = ({ isOpen, onClose, planName }: { isOpen: boolean, onClose: () => void, planName: string }) => {
+  const router = useRouter();
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+      />
+      
+      {/* Modal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3 }}
+        className="fixed top-3/5 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md mx-4"
+      >
+        <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] border border-[#1D4ED8]/30 rounded-2xl p-6 shadow-2xl">
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1 text-white/60 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Content */}
+          <div className="text-center">
+            {/* Icon */}
+            <div className="w-14 h-14 bg-[#1D4ED8]/20 border border-[#1D4ED8]/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="text-xl">⭐</span>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-bold text-white mb-1">
+              Upgrade to {planName}
+            </h3>
+
+            {/* Description */}
+            <p className="text-white/70 text-xs mb-4 leading-relaxed">
+              Sign in to subscribe to the {planName} plan and unlock premium features.
+            </p>
+
+            {/* Benefits preview */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4 text-left">
+              <p className="text-xs text-white/60 mb-2 font-medium">What you'll get:</p>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2 text-xs text-white/80">
+                  <Check className="w-3 h-3 text-[#1D4ED8] flex-shrink-0" />
+                  <span>Unlimited premium access</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs text-white/80">
+                  <Check className="w-3 h-3 text-[#1D4ED8] flex-shrink-0" />
+                  <span>Priority support</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs text-white/80">
+                  <Check className="w-3 h-3 text-[#1D4ED8] flex-shrink-0" />
+                  <span>Advanced features</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col gap-2">
+              <Link href="/sign-in" className="w-full">
+                <button className="w-full bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-semibold py-2.5 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                  Sign In to Subscribe
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </Link>
+              <Link href="/sign-up" className="w-full">
+                <button className="w-full border border-[#1D4ED8]/30 hover:border-[#1D4ED8]/60 text-white font-semibold py-2.5 rounded-lg transition-colors duration-200 text-sm">
+                  Create Account
+                </button>
+              </Link>
+            </div>
+
+            {/* Dismiss option */}
+            <button
+              onClick={onClose}
+              className="mt-3 text-xs text-white/50 hover:text-white/70 transition-colors w-full"
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
+const Pricing = () => {
+  const [isYearly, setIsYearly] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedPlanName, setSelectedPlanName] = useState('');
+
+  const handleSubscribeClick = (planName: string) => {
+    setSelectedPlanName(planName);
+    setShowModal(true);
+  };
+  
+  return (
+    <section id="pricing" className="relative py-24">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0 opacity-100">
+        <Image
+          src="/assets/pricing/bg.svg"
+          alt="Pricing Background"
+          fill
+          className="object-cover"
+        />
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Section header */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          viewport={{ once: true }}
+          className="text-center mb-8"
+        >
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-medium text-white mb-4 max-w-xl mx-auto" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Choose the Plan That's Right for You
+          </h2>
+          <p className="text-lg md:text-base text-white/80 max-w-2xl mx-auto" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Get access to essential workflow tools and basic LLM usage. Upgrade to the Pro Plan to unlock powerful AI capabilities, unlimited nodes, and a whole new level of workflow automation.
+          </p>
+        </motion.div>
+        
+        {/* Billing Toggle */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          viewport={{ once: true }}
+        >
+          <BillingToggle isYearly={isYearly} setIsYearly={setIsYearly} />
+        </motion.div>
+
+        {/* Pricing cards */}
+        <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-0 mb-16 max-w-5xl mx-auto">
+          {plans.map((plan, index) => (
+            <div key={index} className={`flex-1 ${index === 1 ? 'md:max-w-[360px]' : 'md:max-w-[320px]'}`}>
+              <PricingCard 
+                plan={plan} 
+                index={index} 
+                isYearly={isYearly}
+                onSubscribeClick={() => handleSubscribeClick(plan.name)}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Subscribe Modal */}
+        <SubscribeModal 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)}
+          planName={selectedPlanName}
+        />
+        
+        {/* Trust badges */}
+        
+      </div>
+    </section>
+  );
+};
+
+export default Pricing;

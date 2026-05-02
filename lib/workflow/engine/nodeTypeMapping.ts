@@ -1,0 +1,456 @@
+/**
+ * Node Type Mapping for FlowMind AI Workflow Engine
+ * Maps sidebar node types to engine node classes
+ */
+
+import { NodeTypeMapping } from './types';
+import { EmailNode } from './nodes/EmailNode';
+import { SlackNode } from './nodes/SlackNode';
+import { HttpNode } from './nodes/HttpNode';
+import { DatabaseNode } from './nodes/DatabaseNode';
+import { SaveNode } from './nodes/SaveNode';
+import { IfNode } from './nodes/IfNode';
+import { SwitchNode } from './nodes/SwitchNode';
+import { LoopNode } from './nodes/LoopNode';
+import { MergeNode } from './nodes/MergeNode';
+import { DelayNode } from './nodes/DelayNode';
+import { OpenAINode } from './nodes/OpenAINode';
+import { TextAnalysisNode } from './nodes/TextAnalysisNode';
+import { ImageProcessingNode } from './nodes/ImageProcessingNode';
+import { DataTransformNode } from './nodes/DataTransformNode';
+import { JsonParseNode } from './nodes/JsonParseNode';
+import { XmlParseNode } from './nodes/XmlParseNode';
+import { CsvParseNode } from './nodes/CsvParseNode';
+import { DataFilterNode } from './nodes/DataFilterNode';
+import { HttpRequestTriggerNode } from './nodes/HttpRequestTriggerNode';
+import { ScheduleTriggerNode } from './nodes/ScheduleTriggerNode';
+import { WebhookTriggerNode } from './nodes/WebhookTriggerNode';
+import { FileWatchTriggerNode } from './nodes/FileWatchTriggerNode';
+import { DatabaseTriggerNode } from './nodes/DatabaseTriggerNode';
+import { EmailTriggerNode } from './nodes/EmailTriggerNode';
+import { OnClickExecuteTriggerNode } from './nodes/OnClickExecuteTriggerNode';
+import { ShopifyNode } from './nodes/ShopifyNode';
+import { InstagramNode } from './nodes/InstagramNode';
+import { FacebookNode } from './nodes/FacebookNode';
+import { WhatsAppActionNode } from './nodes/whatsapp/WhatsAppActionNode';
+import { DoubleForkNode } from './nodes/DoubleForkNode';
+import { TripleForkNode } from './nodes/TripleForkNode';
+import { QuadraForkNode } from './nodes/QuadraForkNode';
+import { CustomForkNode } from './nodes/CustomForkNode';
+// Newly added nodes
+import { LoggerNode } from './nodes/LoggerNode';
+import { VariableSetterNode } from './nodes/VariableSetterNode';
+import { BooleanNode } from './nodes/BooleanNode';
+import { CounterNode } from './nodes/CounterNode';
+import { TimerNode } from './nodes/TimerNode';
+import { StringManipulationNode } from './nodes/StringManipulationNode';
+import { NumberFormatterNode } from './nodes/NumberFormatterNode';
+import { DateFormatterNode } from './nodes/DateFormatterNode';
+import { StopperNode } from './nodes/StopperNode';
+
+/**
+ * Central mapping registry for sidebar node types to engine node classes
+ * Now supports dynamic backend node types with fallback aliases
+ */
+export const NODE_TYPE_MAPPINGS: NodeTypeMapping[] = [
+  // Triggers
+  {
+    sidebarType: 'Manual Trigger',
+    engineType: 'ManualTrigger',
+    nodeClass: OnClickExecuteTriggerNode,
+    category: 'trigger',
+    aliases: ['On Clicking Execute', 'Manual', 'On Click Execute', 'OnClickExecuteTriggerNode']
+  },
+  {
+    sidebarType: 'Schedule',
+    engineType: 'Schedule',
+    nodeClass: ScheduleTriggerNode,
+    category: 'trigger',
+    aliases: ['Schedule Event', 'ScheduleTriggerNode', 'Scheduling', 'ScheduleEvent']
+  },
+  {
+    sidebarType: 'Webhook',
+    engineType: 'Webhook',
+    nodeClass: WebhookTriggerNode,
+    category: 'trigger',
+    aliases: ['Incoming Webhook', 'WebhookTriggerNode']
+  },
+  {
+    sidebarType: 'Shopify Trigger',
+    engineType: 'ShopifyNode',
+    nodeClass: ShopifyNode,
+    category: 'trigger',
+    aliases: ['Shopify']
+  },
+  {
+    sidebarType: 'File Watch',
+    engineType: 'FileWatchTriggerNode',
+    nodeClass: FileWatchTriggerNode,
+    category: 'trigger'
+  },
+  {
+    sidebarType: 'Database Trigger',
+    engineType: 'DatabaseTriggerNode',
+    nodeClass: DatabaseTriggerNode,
+    category: 'trigger'
+  },
+  {
+    sidebarType: 'Email Trigger',
+    engineType: 'EmailTriggerNode',
+    nodeClass: EmailTriggerNode,
+    category: 'trigger'
+  },
+
+  // Actions
+  {
+    sidebarType: 'Logger',
+    engineType: 'Logger',
+    nodeClass: LoggerNode,
+    category: 'action',
+    aliases: ['LoggerNode']
+  },
+  {
+    sidebarType: 'Variable Setter',
+    engineType: 'SetVariable',
+    nodeClass: VariableSetterNode,
+    category: 'action',
+    aliases: ['VariableSetterNode']
+  },
+  {
+    sidebarType: 'HTTP Request',
+    engineType: 'HttpRequest',
+    nodeClass: HttpNode,
+    category: 'action',
+    aliases: ['HTTP Request Action', 'Http', 'API Request', 'HttpNode', 'HTTPRequest']
+  },
+  {
+    sidebarType: 'Database Query',
+    engineType: 'DatabaseNode',
+    nodeClass: DatabaseNode,
+    category: 'action',
+    aliases: ['Database', 'SQL Query', 'DB Query']
+  },
+  {
+    sidebarType: 'Send Email',
+    engineType: 'SendEmail',
+    nodeClass: EmailNode,
+    category: 'action',
+    aliases: ['Email', 'EmailNode']
+  },
+  {
+    sidebarType: 'Slack Message',
+    engineType: 'SlackMessage',
+    nodeClass: SlackNode,
+    category: 'action',
+    aliases: ['Slack', 'SlackNode']
+  },
+  {
+    sidebarType: 'Save',
+    engineType: 'SaveNode',
+    nodeClass: SaveNode,
+    category: 'action'
+  },
+  {
+    sidebarType: 'File Operation',
+    engineType: 'FileOperationNode',
+    nodeClass: SaveNode, // Reuse SaveNode for file operations
+    category: 'action'
+  },
+
+  // Logic
+  {
+    sidebarType: 'Boolean',
+    engineType: 'BooleanNode',
+    nodeClass: BooleanNode,
+    category: 'logic'
+  },
+  {
+    sidebarType: 'Counter',
+    engineType: 'CounterNode',
+    nodeClass: CounterNode,
+    category: 'logic'
+  },
+  {
+    sidebarType: 'Timer',
+    engineType: 'TimerNode',
+    nodeClass: TimerNode,
+    category: 'logic'
+  },
+  {
+    sidebarType: 'If Condition',
+    engineType: 'IfCondition',
+    nodeClass: IfNode,
+    category: 'logic',
+    aliases: ['If', 'Conditional', 'IfNode']
+  },
+  {
+    sidebarType: 'Switch',
+    engineType: 'SwitchNode',
+    nodeClass: SwitchNode,
+    category: 'logic'
+  },
+  {
+    sidebarType: 'Loop',
+    engineType: 'Loop',
+    nodeClass: LoopNode,
+    category: 'logic',
+    aliases: ['LoopNode']
+  },
+  {
+    sidebarType: 'Merge',
+    engineType: 'MergeNode',
+    nodeClass: MergeNode,
+    category: 'logic'
+  },
+  {
+    sidebarType: 'Delay',
+    engineType: 'Delay',
+    nodeClass: DelayNode,
+    category: 'logic',
+    aliases: ['DelayNode']
+  },
+
+  // AI/ML
+  {
+    sidebarType: 'OpenAI GPT',
+    engineType: 'OpenAI',
+    nodeClass: OpenAINode,
+    category: 'ai_ml',
+    aliases: ['OpenAI', 'GPT', 'ChatGPT', 'OpenAINode']
+  },
+  {
+    sidebarType: 'Text Analysis',
+    engineType: 'TextAnalysisNode',
+    nodeClass: TextAnalysisNode,
+    category: 'ai_ml'
+  },
+  {
+    sidebarType: 'Image Processing',
+    engineType: 'ImageProcessingNode',
+    nodeClass: ImageProcessingNode,
+    category: 'ai_ml'
+  },
+  {
+    sidebarType: 'Data Transformation',
+    engineType: 'DataTransformNode',
+    nodeClass: DataTransformNode,
+    category: 'ai_ml',
+    aliases: ['Data Transform', 'Transform']
+  },
+
+  // Data
+  {
+    sidebarType: 'JSON Parse',
+    engineType: 'JsonParser',
+    nodeClass: JsonParseNode,
+    category: 'data',
+    aliases: ['JSON Parser', 'JsonParseNode', 'JSONParser']  // 'JSONParser' = NodeRegistry sidebar type
+  },
+  {
+    sidebarType: 'String Manipulation',
+    engineType: 'DataFormatter',
+    nodeClass: StringManipulationNode,
+    category: 'data',
+    aliases: ['StringManipulationNode', 'DataFormatter', 'Data Formatter']
+  },
+  {
+    sidebarType: 'Number Formatter',
+    engineType: 'NumberFormatterNode',
+    nodeClass: NumberFormatterNode,
+    category: 'data'
+  },
+  {
+    sidebarType: 'Date Formatter',
+    engineType: 'DateFormatterNode',
+    nodeClass: DateFormatterNode,
+    category: 'data'
+  },
+  {
+    sidebarType: 'XML Parse',
+    engineType: 'XmlParseNode',
+    nodeClass: XmlParseNode,
+    category: 'data'
+  },
+  {
+    sidebarType: 'CSV Parse',
+    engineType: 'CsvParseNode',
+    nodeClass: CsvParseNode,
+    category: 'data'
+  },
+  {
+    sidebarType: 'Data Filter',
+    engineType: 'DataFilterNode',
+    nodeClass: DataFilterNode,
+    category: 'data'
+  },
+
+  // Ecommerce
+  {
+    sidebarType: 'Shopify Action',
+    engineType: 'ShopifyNode',
+    nodeClass: ShopifyNode,
+    category: 'ecommerce',
+    aliases: ['Shopify']
+  },
+  {
+    sidebarType: 'Instagram',
+    engineType: 'InstagramNode',
+    nodeClass: InstagramNode,
+    category: 'ecommerce'
+  },
+  {
+    sidebarType: 'Facebook',
+    engineType: 'FacebookNode',
+    nodeClass: FacebookNode,
+    category: 'ecommerce'
+  },
+  {
+    sidebarType: 'WhatsApp',
+    engineType: 'WhatsAppActionNode',
+    nodeClass: WhatsAppActionNode,
+    category: 'ecommerce'
+  },
+
+  // Fork
+  {
+    sidebarType: 'Double',
+    engineType: 'DoubleForkNode',
+    nodeClass: DoubleForkNode,
+    category: 'fork'
+  },
+  {
+    sidebarType: 'Triple',
+    engineType: 'TripleForkNode',
+    nodeClass: TripleForkNode,
+    category: 'fork'
+  },
+  {
+    sidebarType: 'Quadra',
+    engineType: 'QuadraForkNode',
+    nodeClass: QuadraForkNode,
+    category: 'fork'
+  },
+  {
+    sidebarType: 'Custom',
+    engineType: 'CustomForkNode',
+    nodeClass: CustomForkNode,
+    category: 'fork'
+  },
+
+  // Utility
+  {
+    sidebarType: 'Stopper',
+    engineType: 'Stopper',
+    nodeClass: StopperNode,
+    category: 'logic',
+    aliases: ['Stop', 'End', 'StopperNode']
+  }
+];
+
+/**
+ * Get node mapping by sidebar type (with alias support)
+ */
+export function getNodeMapping(sidebarType: string | undefined | null): NodeTypeMapping | undefined {
+  if (!sidebarType || typeof sidebarType !== 'string') return undefined;
+  
+  // First try exact match
+  let mapping = NODE_TYPE_MAPPINGS.find(mapping => mapping.sidebarType === sidebarType);
+  
+  // If no exact match, try aliases
+  if (!mapping) {
+    mapping = NODE_TYPE_MAPPINGS.find(mapping => 
+      mapping.aliases?.some(alias => {
+        if (!alias || typeof alias !== 'string') return false;
+        return alias.toLowerCase() === sidebarType.toLowerCase();
+      })
+    );
+  }
+  
+  return mapping;
+}
+
+/**
+ * Get all node mappings by category
+ */
+export function getNodeMappingsByCategory(category: 'trigger' | 'action' | 'logic' | 'ai_ml' | 'data' | 'ecommerce' | 'fork'): NodeTypeMapping[] {
+  return NODE_TYPE_MAPPINGS.filter(mapping => mapping.category === category);
+}
+
+/**
+ * Check if a sidebar type is supported
+ */
+export function isNodeTypeSupported(sidebarType: string): boolean {
+  return NODE_TYPE_MAPPINGS.some(mapping => mapping.sidebarType === sidebarType);
+}
+
+/**
+ * Get all supported sidebar types
+ */
+export function getSupportedSidebarTypes(): string[] {
+  return NODE_TYPE_MAPPINGS.map(mapping => mapping.sidebarType);
+}
+
+/**
+ * Get all supported engine types
+ */
+export function getSupportedEngineTypes(): string[] {
+  return NODE_TYPE_MAPPINGS.map(mapping => mapping.engineType);
+}
+
+/**
+ * Convert sidebar node type to engine node type
+ */
+export function convertSidebarTypeToEngineType(sidebarType: string): string {
+  const mapping = getNodeMapping(sidebarType);
+  return mapping ? mapping.engineType : sidebarType; // fallback to original if not found
+}
+
+/**
+ * Convert engine node type to sidebar node type
+ */
+export function convertEngineTypeToSidebarType(engineType: string): string {
+  const mapping = NODE_TYPE_MAPPINGS.find(mapping => mapping.engineType === engineType);
+  return mapping ? mapping.sidebarType : engineType; // fallback to original if not found
+}
+
+/**
+ * Create a node instance from sidebar type
+ */
+export function createNodeInstance(sidebarType: string): any | null {
+  const mapping = getNodeMapping(sidebarType);
+  if (!mapping) {
+    return null;
+  }
+  
+  try {
+    return new mapping.nodeClass();
+  } catch (error) {
+    console.error(`Failed to create node instance for ${sidebarType}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Validate node configuration
+ */
+export function validateNodeConfig(sidebarType: string | undefined | null, config: Record<string, any>): string[] {
+  if (!sidebarType || typeof sidebarType !== 'string') {
+    return [`Invalid node type: ${sidebarType}`];
+  }
+  
+  const mapping = getNodeMapping(sidebarType);
+  if (!mapping) {
+    return [`Unknown node type: ${sidebarType}`];
+  }
+
+  try {
+    const nodeInstance = new mapping.nodeClass();
+    if (nodeInstance.validate) {
+      const validationErrors = nodeInstance.validate(config || {});
+      return Array.isArray(validationErrors) ? validationErrors : [];
+    }
+    return [];
+  } catch (error) {
+    return [`Failed to validate node configuration: ${error instanceof Error ? error.message : String(error)}`];
+  }
+}

@@ -1,0 +1,470 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-outfit: var(--font-outfit);
+  --font-inter: var(--font-inter);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* ── FlowMind AI Design Tokens ─────────────────────────────── */
+  /* Primary: Dark Blue */
+  --fm-primary:        #1D4ED8;
+  --fm-primary-light:  #2563EB;
+  --fm-primary-dark:   #1E3A8A;
+  --fm-primary-glow:   rgba(29, 78, 216, 0.35);
+
+  /* Secondary: Light Blue */
+  --fm-secondary:      #3B82F6;
+  --fm-secondary-light:#60A5FA;
+  --fm-secondary-glow: rgba(59, 130, 246, 0.25);
+
+  /* Accent: Emerald */
+  --fm-accent:         #10B981;
+  --fm-accent-light:   #34D399;
+  --fm-accent-glow:    rgba(16, 185, 129, 0.25);
+
+  /* Warning / Amber */
+  --fm-warning:        #F59E0B;
+  --fm-danger:         #EF4444;
+
+  /* Background layers */
+  --fm-bg-deep:        #05050F;
+  --fm-bg-base:        #0A0A1A;
+  --fm-bg-surface:     #11112A;
+  --fm-bg-elevated:    #1A1A3E;
+
+  /* Glass */
+  --fm-glass-bg:       rgba(29, 78, 216, 0.04);
+  --fm-glass-border:   rgba(29, 78, 216, 0.15);
+  --fm-glass-bg-white: rgba(255, 255, 255, 0.04);
+  --fm-glass-border-white: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --fm-text-primary:   #FFFFFF;
+  --fm-text-secondary: rgba(255, 255, 255, 0.7);
+  --fm-text-muted:     rgba(255, 255, 255, 0.4);
+
+  /* ── Tailwind theme overrides ────────────────────────────────── */
+  --background: var(--fm-bg-base);
+  --foreground: var(--fm-text-primary);
+  --card: var(--fm-bg-surface);
+  --card-foreground: var(--fm-text-primary);
+  --popover: var(--fm-bg-elevated);
+  --popover-foreground: var(--fm-text-primary);
+  --primary: var(--fm-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--fm-bg-elevated);
+  --secondary-foreground: var(--fm-text-secondary);
+  --muted: var(--fm-bg-surface);
+  --muted-foreground: var(--fm-text-muted);
+  --accent: var(--fm-secondary);
+  --accent-foreground: #ffffff;
+  --destructive: var(--fm-danger);
+  --border: var(--fm-glass-border);
+  --input: var(--fm-glass-bg);
+  --ring: var(--fm-primary-glow);
+
+  /* Charts */
+  --chart-1: var(--fm-primary);
+  --chart-2: var(--fm-secondary);
+  --chart-3: var(--fm-accent);
+  --chart-4: var(--fm-warning);
+  --chart-5: #F472B6;
+
+  /* Sidebar */
+  --sidebar: var(--fm-bg-surface);
+  --sidebar-foreground: var(--fm-text-primary);
+  --sidebar-primary: var(--fm-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--fm-bg-elevated);
+  --sidebar-accent-foreground: var(--fm-text-secondary);
+  --sidebar-border: var(--fm-glass-border);
+  --sidebar-ring: var(--fm-primary-glow);
+}
+
+.dark {
+  --background: var(--fm-bg-base);
+  --foreground: var(--fm-text-primary);
+  --card: var(--fm-bg-surface);
+  --card-foreground: var(--fm-text-primary);
+  --popover: var(--fm-bg-elevated);
+  --popover-foreground: var(--fm-text-primary);
+  --primary: var(--fm-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--fm-bg-elevated);
+  --secondary-foreground: var(--fm-text-secondary);
+  --muted: var(--fm-bg-surface);
+  --muted-foreground: var(--fm-text-muted);
+  --accent: var(--fm-secondary);
+  --accent-foreground: #ffffff;
+  --destructive: var(--fm-danger);
+  --border: var(--fm-glass-border);
+  --input: var(--fm-glass-bg);
+  --ring: var(--fm-primary-glow);
+  --sidebar: var(--fm-bg-surface);
+  --sidebar-foreground: var(--fm-text-primary);
+  --sidebar-primary: var(--fm-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--fm-bg-elevated);
+  --sidebar-accent-foreground: var(--fm-text-secondary);
+  --sidebar-border: var(--fm-glass-border);
+  --sidebar-ring: var(--fm-primary-glow);
+}
+
+html {
+  scroll-behavior: smooth;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  background-color: var(--fm-bg-base);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body {
+    background-color: var(--fm-bg-base);
+    color: var(--fm-text-primary);
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #root,
+  #__next {
+    width: 100%;
+    min-height: 100vh;
+  }
+}
+
+/* ── FlowMind AI Utility Classes ──────────────────────────────── */
+@layer utilities {
+  /* Font utilities */
+  .font-outfit {
+    font-family: 'Outfit', sans-serif;
+  }
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ── Glassmorphism ──────────────────── */
+  .glass {
+    background: var(--fm-glass-bg-white);
+    border: 1px solid var(--fm-glass-border-white);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-violet {
+    background: var(--fm-glass-bg);
+    border: 1px solid var(--fm-glass-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-card {
+    background: rgba(17, 17, 42, 0.7);
+    border: 1px solid rgba(29, 78, 216, 0.12);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  /* ── Gradient Text ───────────────────── */
+  .text-gradient-violet {
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 50%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-cyan {
+    background: linear-gradient(135deg, #22D3EE 0%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-ai {
+    background: linear-gradient(135deg, #A855F7 0%, #1D4ED8 40%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Glow Utilities ──────────────────── */
+  .glow-violet {
+    box-shadow: 0 0 20px var(--fm-primary-glow), 0 0 40px rgba(29, 78, 216, 0.15);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px var(--fm-secondary-glow);
+  }
+
+  .glow-emerald {
+    box-shadow: 0 0 20px var(--fm-accent-glow);
+  }
+
+  .text-glow-violet {
+    text-shadow: 0 0 20px rgba(29, 78, 216, 0.6), 0 0 40px rgba(29, 78, 216, 0.3);
+  }
+
+  /* ── Border Utilities ────────────────── */
+  .border-violet {
+    border-color: var(--fm-glass-border);
+  }
+
+  .border-gradient-violet {
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+
+  /* ── Gradient Backgrounds ─────────────── */
+  .bg-fm-primary { background-color: var(--fm-primary); }
+  .bg-fm-secondary { background-color: var(--fm-secondary); }
+  .bg-fm-accent { background-color: var(--fm-accent); }
+  .bg-fm-deep { background-color: var(--fm-bg-deep); }
+  .bg-fm-base { background-color: var(--fm-bg-base); }
+  .bg-fm-surface { background-color: var(--fm-bg-surface); }
+
+  .bg-gradient-violet {
+    background: linear-gradient(135deg, var(--fm-primary) 0%, var(--fm-secondary) 100%);
+  }
+
+  .bg-gradient-violet-dark {
+    background: linear-gradient(135deg, #1E3A8A 0%, #0891B2 100%);
+  }
+
+  .bg-gradient-mesh {
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(29, 78, 216, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(16, 185, 129, 0.06) 0%, transparent 50%),
+      var(--fm-bg-base);
+  }
+
+  .bg-gradient-auth {
+    background:
+      radial-gradient(ellipse at top left, rgba(29, 78, 216, 0.2) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+      var(--fm-bg-deep);
+  }
+
+  /* ── Animation Utilities ─────────────── */
+  .animate-float {
+    animation: fm-float 8s ease-in-out infinite;
+  }
+  .animate-float-delayed {
+    animation: fm-float 8s ease-in-out infinite 2s;
+  }
+  .animate-pulse-slow {
+    animation: fm-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .animate-glow {
+    animation: fm-glow 3s ease-in-out infinite alternate;
+  }
+  .animate-spin-slow {
+    animation: spin 12s linear infinite;
+  }
+  .animate-orbit {
+    animation: fm-orbit 20s linear infinite;
+  }
+  .animate-scan {
+    animation: fm-scan 3s ease-in-out infinite;
+  }
+  .animate-node-pulse {
+    animation: fm-node-pulse 2s ease-in-out infinite;
+  }
+
+  /* ── Hover Effects ────────────────────── */
+  .hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px var(--fm-primary-glow);
+  }
+
+  .hover-glow {
+    transition: box-shadow 0.3s ease;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 24px var(--fm-primary-glow);
+  }
+
+  /* ── Admin scrollbar ────────────────── */
+  .admin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(29, 78, 216, 0.3) transparent;
+  }
+  .admin-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .admin-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .admin-scroll::-webkit-scrollbar-thumb {
+    background: rgba(29, 78, 216, 0.3);
+    border-radius: 8px;
+  }
+  .admin-scroll:hover::-webkit-scrollbar-thumb {
+    background: rgba(29, 78, 216, 0.6);
+  }
+
+  /* ── Workflow canvas ────────────────── */
+  .workflow-node {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .workflow-node:hover {
+    box-shadow: 0 0 0 2px var(--fm-primary), 0 8px 24px var(--fm-primary-glow);
+    transform: translateY(-1px);
+  }
+  .workflow-node.selected {
+    box-shadow: 0 0 0 2px var(--fm-primary), 0 8px 32px var(--fm-primary-glow);
+  }
+}
+
+/* ── Keyframes ─────────────────────────────────────────────── */
+@keyframes fm-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes fm-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes fm-glow {
+  from { box-shadow: 0 0 10px var(--fm-primary-glow); }
+  to   { box-shadow: 0 0 30px var(--fm-primary-glow), 0 0 60px rgba(29, 78, 216, 0.15); }
+}
+
+@keyframes fm-orbit {
+  0%   { transform: rotate(0deg) translateX(80px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(80px) rotate(-360deg); }
+}
+
+@keyframes fm-scan {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%       { transform: translateY(100%); opacity: 1; }
+}
+
+@keyframes fm-node-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(29, 78, 216, 0); }
+}
+
+/* ── Custom Scrollbar — FlowMind AI Theme ───────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--fm-bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--fm-primary) 0%, var(--fm-secondary) 100%);
+  border-radius: 4px;
+  border: 1px solid var(--fm-bg-base);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--fm-primary-light) 0%, var(--fm-secondary-light) 100%);
+  box-shadow: 0 0 8px var(--fm-primary-glow);
+}
+::-webkit-scrollbar-corner {
+  background: var(--fm-bg-base);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fm-primary) var(--fm-bg-base);
+}
+
+/* ── Node Editor (React Flow overrides) ─────────────────────── */
+.react-flow__background {
+  background-color: var(--fm-bg-deep) !important;
+}
+.react-flow__minimap {
+  background-color: var(--fm-bg-surface) !important;
+  border: 1px solid var(--fm-glass-border) !important;
+  border-radius: 8px !important;
+}
+.react-flow__controls {
+  background-color: var(--fm-bg-surface) !important;
+  border: 1px solid var(--fm-glass-border) !important;
+  border-radius: 8px !important;
+}
+.react-flow__controls-button {
+  background-color: var(--fm-bg-elevated) !important;
+  border-color: var(--fm-glass-border) !important;
+  color: var(--fm-text-secondary) !important;
+}
+.react-flow__controls-button:hover {
+  background-color: var(--fm-primary) !important;
+  color: white !important;
+}
+.react-flow__edge-path {
+  stroke: var(--fm-primary) !important;
+  stroke-width: 2 !important;
+}
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6;
+  animation: dashdraw 0.5s linear infinite;
+}
+@keyframes dashdraw {
+  from { stroke-dashoffset: 12; }
+  to   { stroke-dashoffset: 0; }
+}
