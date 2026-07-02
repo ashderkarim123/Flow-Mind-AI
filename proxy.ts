@@ -31,7 +31,7 @@ function matchesRoute(pathname: string, routes: string[]): boolean {
   )
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Allow public routes
