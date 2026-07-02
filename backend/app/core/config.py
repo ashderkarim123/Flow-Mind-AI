@@ -118,11 +118,28 @@ settings = Settings()
 
 def get_firebase_credentials():
     """Get Firebase credentials as a dictionary for Firebase Admin SDK"""
+    # Check if a single FIREBASE_CREDENTIALS JSON string is provided in the env
+    env_creds = os.getenv("FIREBASE_CREDENTIALS")
+    if env_creds:
+        try:
+            creds = json.loads(env_creds)
+            if isinstance(creds, dict) and "private_key" in creds:
+                creds["private_key"] = creds["private_key"].replace('\\n', '\n')
+                return creds
+        except Exception:
+            # Fall back to individual settings if JSON parsing fails
+            pass
+
+    # Fall back to individual settings fields
+    private_key = settings.FIREBASE_PRIVATE_KEY or ""
+    if private_key:
+        private_key = private_key.replace('\\n', '\n')
+
     return {
         "type": "service_account",
         "project_id": settings.FIREBASE_PROJECT_ID,
         "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
-        "private_key": settings.FIREBASE_PRIVATE_KEY.replace('\\n', '\n'),
+        "private_key": private_key,
         "client_email": settings.FIREBASE_CLIENT_EMAIL,
         "client_id": settings.FIREBASE_CLIENT_ID,
         "auth_uri": settings.FIREBASE_AUTH_URI,
