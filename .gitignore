@@ -55,3 +55,7 @@ nexagent-*-firebase-adminsdk-*.json
 *-service-account*.json
 *-credentials*.json
 n8n-nexagent-*.json
+
+# Firebase client config
+lib/firebase-config.ts
+

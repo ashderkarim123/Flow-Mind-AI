@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const OPENROUTER_API_KEY = "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";
+const apiKey = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 // Using a capable, fast model available on OpenRouter
 const ASSISTANT_MODEL = "google/gemini-2.5-flash";
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:3000",
         "X-Title": "FlowMind AI Workflow Assistant",

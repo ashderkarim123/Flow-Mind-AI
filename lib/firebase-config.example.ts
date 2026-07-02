@@ -11,11 +11,4 @@ export const firebaseConfig = {
   measurementId: "your_measurement_id"
 };
 
-// Your actual Firebase configuration values:
-// apiKey: "AIzaSyDuJDldiipKP8J3Y75aPKbl-YWOJXZgfK4"
-// authDomain: "flowmindai-90391.firebaseapp.com"
-// projectId: "flowmindai-90391"
-// storageBucket: "flowmindai-90391.firebasestorage.app"
-// messagingSenderId: "1046484949871"
-// appId: "1:1046484949871:web:f36f1aa6fb7f49953ea69a"
-// measurementId: "G-CGDZL03W91"
+
