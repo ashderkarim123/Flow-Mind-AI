@@ -15,7 +15,7 @@ if (!API_BASE_URL) {
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -48,32 +48,30 @@ apiClient.interceptors.request.use(
     // Always prefer Firebase ID token for authenticated users
     if (typeof window !== 'undefined' && auth?.currentUser) {
       try {
-        // Force refresh token to ensure it's valid
+        // Force refresh the token for protected requests to avoid stale/expired tokens
         const idToken = await auth.currentUser.getIdToken(true);
         if (idToken) {
           (config.headers as any).Authorization = `Bearer ${idToken}`;
-          // Store token for fallback
           try {
             localStorage.setItem('backend_auth_token', idToken);
           } catch {}
         } else {
-          // If token fetch failed, try to use stored token as fallback
           const storedToken = localStorage.getItem('backend_auth_token');
           if (storedToken) {
             (config.headers as any).Authorization = `Bearer ${storedToken}`;
           }
         }
       } catch (error) {
-        // If token refresh fails, try stored token
+        // If token refresh fails, fallback to stored token and log debug info
         try {
           const storedToken = localStorage.getItem('backend_auth_token');
           if (storedToken) {
             (config.headers as any).Authorization = `Bearer ${storedToken}`;
           }
         } catch {}
-        
+
         if (process.env.NEXT_PUBLIC_DEBUG_TOKENS === 'true') {
-          console.log('[API Client Debug] Failed to get Firebase token:', error);
+          console.log('[API Client Debug] Failed to refresh Firebase token:', error);
         }
       }
     }
@@ -104,37 +102,44 @@ apiClient.interceptors.request.use(
 // Response interceptor - Handle errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<any>) => {
+  async (error: AxiosError<any>) => {
     if (error.response) {
       const status = error.response.status;
       const data: any = error.response.data as any;
+      const config = error.config as any;
 
       // Handle 401 - Unauthorized
-      // Only redirect if:
-      // 1. We have a valid response (not network error)
-      // 2. We're not already on sign-in page
-      // 3. We're not on admin pages
-      // 4. The error is an actual auth failure (not connection refused)
-      // 5. We're not on dashboard (dashboard handles its own errors gracefully)
       if (status === 401 && typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
         const onAdmin = currentPath.startsWith('/admin321');
         const onSignIn = currentPath === '/sign-in' || currentPath.startsWith('/sign-in');
-        const onDashboard = currentPath === '/dashboard' || currentPath.startsWith('/dashboard');
         const isPublicEndpoint = error.config?.url?.includes('/check-account-status') || 
                                  error.config?.url?.includes('/forgot-password') ||
                                  error.config?.url?.includes('/sign-up');
         const isAnalyticsEndpoint = error.config?.url?.includes('/analytics/');
-        
-        // Don't redirect for:
-        // - Already on sign-in page (prevent loops)
-        // - Admin pages
-        // - Dashboard pages (they handle errors gracefully)
-        // - Public endpoints that don't require auth
-        // - Analytics endpoints (dashboard handles these errors)
-        if (!onAdmin && !onSignIn && !onDashboard && !isPublicEndpoint && !isAnalyticsEndpoint) {
+        const isInternalAppRoute = [
+          '/dashboard', '/team', '/profile', '/settings', '/workflows', '/marketplace', '/credentials', '/ai', '/tokens'
+        ].some((route) => currentPath === route || currentPath.startsWith(route));
+
+        if (auth?.currentUser && !config?._retry) {
+          config._retry = true;
+          try {
+            const refreshedToken = await auth.currentUser.getIdToken(true);
+            if (refreshedToken) {
+              config.headers = config.headers || {};
+              config.headers.Authorization = `Bearer ${refreshedToken}`;
+              try { localStorage.setItem('backend_auth_token', refreshedToken); } catch {}
+              return apiClient(config);
+            }
+          } catch (refreshError) {
+            if (process.env.NEXT_PUBLIC_DEBUG_TOKENS === 'true') {
+              console.log('[API Client Debug] Token refresh failed on 401 retry:', refreshError);
+            }
+          }
+        }
+
+        if (!onAdmin && !onSignIn && !isPublicEndpoint && !isAnalyticsEndpoint && !isInternalAppRoute) {
           try { localStorage.removeItem('backend_auth_token'); } catch {}
-          // Use replace to avoid adding to history
           window.location.replace('/sign-in');
         }
       }
@@ -151,7 +156,6 @@ apiClient.interceptors.response.use(
     return Promise.reject({
       message: error.message || 'Network error. Please check your connection.',
       error: 'NETWORK_ERROR',
-      originalError: error
     });
   }
 );

@@ -24,53 +24,63 @@ interface AIModel {
 
 const AI_MODELS: AIModel[] = [
   {
-    id: 'gpt-4',
-    name: 'GPT-4',
+    id: 'gpt-4.1',
+    name: 'GPT-4.1',
     provider: 'OpenAI',
     icon: '/assets/canvas/openai.svg',
-    description: 'Most capable model for complex tasks, reasoning, and analysis',
+    description: 'Latest flagship model — superior coding, instruction following, and long-context tasks',
     color: '#10A37F',
-    maxTokens: 8192,
+    maxTokens: 32768,
     defaultTemp: 0.7,
   },
   {
-    id: 'gpt-3.5-turbo',
-    name: 'GPT-3.5 Turbo',
+    id: 'gpt-4.1-mini',
+    name: 'GPT-4.1 Mini',
     provider: 'OpenAI',
     icon: '/assets/canvas/openai.svg',
-    description: 'Fast and efficient for most everyday tasks',
+    description: 'Fast and efficient — best value for most everyday tasks',
     color: '#10A37F',
-    maxTokens: 4096,
+    maxTokens: 16384,
     defaultTemp: 0.7,
   },
   {
-    id: 'claude-3-sonnet',
-    name: 'Claude 3 Sonnet',
+    id: 'claude-sonnet-4-5',
+    name: 'Claude Sonnet 4.5',
     provider: 'Anthropic',
     icon: '/assets/canvas/claude.svg',
-    description: 'Balanced intelligence and speed for enterprise workloads',
+    description: 'Balanced intelligence and speed — excellent for enterprise workloads and coding',
     color: '#D97706',
-    maxTokens: 4096,
-    defaultTemp: 0.7,
-  },
-  {
-    id: 'gemini-pro',
-    name: 'Gemini Pro',
-    provider: 'Google',
-    icon: '/assets/canvas/gemini-2.svg',
-    description: 'Google\'s advanced multi-modal AI model — free tier available',
-    color: '#4285F4',
     maxTokens: 8192,
     defaultTemp: 0.7,
   },
   {
-    id: 'llama-3-70b',
-    name: 'Llama 3 70B',
+    id: 'claude-opus-4-5',
+    name: 'Claude Opus 4.5',
+    provider: 'Anthropic',
+    icon: '/assets/canvas/claude.svg',
+    description: 'Most capable Claude model — best for complex analysis and nuanced reasoning',
+    color: '#D97706',
+    maxTokens: 8192,
+    defaultTemp: 0.7,
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    provider: 'Google',
+    icon: '/assets/canvas/gemini-2.svg',
+    description: 'Google\'s fastest thinking model with multimodal capabilities — free tier available',
+    color: '#4285F4',
+    maxTokens: 16384,
+    defaultTemp: 0.7,
+  },
+  {
+    id: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    name: 'Llama 4 Scout',
     provider: 'Groq',
     icon: '/assets/canvas/groq-4.svg',
-    description: 'Ultra-fast open-source inference via Groq — free tier',
+    description: 'Meta\'s latest open model — ultra-fast inference via Groq — free tier',
     color: '#F55036',
-    maxTokens: 4096,
+    maxTokens: 8192,
     defaultTemp: 0.7,
   },
 ];
@@ -94,7 +104,7 @@ interface ModelResponse {
 
 export default function AIIntegrationPage() {
   const [prompt, setPrompt] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4', 'claude-3-sonnet']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4.1', 'claude-sonnet-4-5']);
   const [showSettings, setShowSettings] = useState(false);
   const [configs, setConfigs] = useState<Record<string, ModelConfig>>(() => {
     const initial: Record<string, ModelConfig> = {};

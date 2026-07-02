@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Firebase Configuration
-    FIREBASE_PROJECT_ID: str = "flowmind-ai-fyp"
+    FIREBASE_PROJECT_ID: str = "flowmind-ai-123"
     FIREBASE_PRIVATE_KEY_ID: str = ""
     FIREBASE_PRIVATE_KEY: str = ""
     FIREBASE_CLIENT_EMAIL: str = ""

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { workflowManager } from "@/lib/workflow/WorkflowManager";
 import { WorkflowExecution } from "@/lib/workflow/types";
-import { X, RotateCcw, Calendar, Timer, Zap, DollarSign, CheckCircle, XCircle, Clock, Play } from "lucide-react";
+import { X, RotateCcw, Calendar, Timer, Zap, DollarSign, CheckCircle, XCircle, Clock, Play, AlertTriangle } from "lucide-react";
 
 interface ExecutionModalProps {
   executionId: string | null;
@@ -200,8 +200,51 @@ export default function ExecutionModal({ executionId, open, onClose }: Execution
                             <span className="text-white/60">• {fmtDur(log.duration)}</span>
                           </div>
                         </div>
-                        {log.error && (
-                          <div className="mt-2 text-red-300 text-xs bg-black/80 border border-red-500/40 rounded p-2">{log.error}</div>
+                        {log.status === "failed" && (
+                          <div className="mt-4 border border-red-500/30 bg-red-950/20 rounded-xl p-4 space-y-3 text-left">
+                            <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
+                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span>Node Execution Failed</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px]">
+                              <div>
+                                <span className="text-white/40 block mb-0.5">Error Message</span>
+                                <span className="text-red-300 font-mono break-all">{log.error || "Unknown execution error"}</span>
+                              </div>
+                              <div>
+                                <span className="text-white/40 block mb-0.5">Duration / Time</span>
+                                <span className="text-white/70">{fmtDur(log.duration)} ({fmtTs(log.endTime)})</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
+                                    const token = localStorage.getItem('backend_auth_token');
+                                    const res = await fetch(`${backendUrl}/api/v1/workflows/executions/${execution.id}/retry`, {
+                                      method: 'POST',
+                                      headers: { 
+                                        'Authorization': `Bearer ${token}`,
+                                        'Content-Type': 'application/json'
+                                      }
+                                    });
+                                    if (res.ok) {
+                                      load();
+                                    } else {
+                                      alert("Failed to trigger execution retry");
+                                    }
+                                  } catch (e) {
+                                    console.error(e);
+                                    alert("Error retrying execution");
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 bg-red-950/50 hover:bg-red-900/40 border border-red-500/30 text-red-200 text-[10px] font-medium px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <RotateCcw className="w-3 h-3 animate-pulse" /> Retry Execution
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>

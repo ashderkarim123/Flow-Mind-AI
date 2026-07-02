@@ -26,6 +26,7 @@ export interface MarketplaceNexa {
   publishedAt: any;
   downloads: number;
   rating: number;
+  featured?: boolean;
 }
 
 export interface MarketplacePurchase {

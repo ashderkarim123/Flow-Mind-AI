@@ -204,7 +204,7 @@ export class WorkflowManager {
             endTime: Date.now(),
             duration: response.execution_time_ms || 0,
             input: input,
-            nodeLogs: response.node_logs || [],
+            nodeLogs: (response.node_logs as any) || [],
             metadata: {
               tokensUsed: 0,
               cost: 0

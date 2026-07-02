@@ -37,6 +37,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
+# Silence noisy third-party loggers
+for _noisy in ("httpx", "httpcore", "urllib3", "firebase_admin", "google.auth", "google.cloud"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # Create FastAPI instance
@@ -52,12 +56,9 @@ app = FastAPI(
 # Add CORS middleware
 # Ensure common dev ports are included for local development
 cors_origins = list(settings.CORS_ORIGINS) if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)]
-for port in ["http://localhost:3000", "http://localhost:3001", "http://localhost:3005"]:
+for port in ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004", "http://localhost:3005", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"]:
     if port not in cors_origins:
         cors_origins.append(port)
-
-# Log CORS origins for debugging
-logger.info(f"CORS allowed origins: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -158,12 +159,7 @@ async def scheduled_backup_task():
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    logger.info(f"Starting {settings.PROJECT_NAME}")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Debug mode: {settings.DEBUG}")
-    logger.info(f"API Version: {settings.API_VERSION}")
-    logger.info(f"CORS Origins from config: {settings.CORS_ORIGINS}")
-    logger.info(f"CORS Origins after processing: {cors_origins}")
+    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.API_VERSION} [{settings.ENVIRONMENT}]")
 
     # Initialise the node registry (auto-discovers all BaseNode subclasses)
     try:

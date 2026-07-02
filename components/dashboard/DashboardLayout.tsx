@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, User as UserIcon, Settings, AlertTriangle, MailCheck, X, Menu, ChevronRight, Brain } from "lucide-react";
+import { LogOut, User as UserIcon, Settings, AlertTriangle, MailCheck, X, Menu, ChevronRight, Brain, Bell } from "lucide-react";
 import Image from "next/image";
 
 interface DashboardLayoutProps {
@@ -35,8 +35,54 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showVerificationBanner, setShowVerificationBanner] = useState(true);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
   const pathname = usePathname();
   const { user, loading, signOut, sendVerificationEmail } = useAuth();
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    setNotifLoading(true);
+    try {
+      const token = localStorage.getItem('backend_auth_token') || await (user as any).getIdToken();
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${backendUrl}/api/v1/notifications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || data.items || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch notifications:", e);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const markAllRead = async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('backend_auth_token') || await (user as any).getIdToken();
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${backendUrl}/api/v1/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      }
+    } catch (e) {
+      console.error("Failed to mark notifications as read:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -240,13 +286,64 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
             </button>
 
-            {/* Logo for Mobile */}
             <Link href="/dashboard" className="lg:hidden flex items-center gap-2">
               <div className="bg-blue-600 p-1 rounded-md">
                 <Brain className="w-4 h-4 text-white" />
               </div>
               <span className="text-lg font-bold text-white tracking-tight">FlowMind</span>
             </Link>
+
+            {/* Notifications Bell */}
+            <div className="relative ml-auto">
+              <button
+                onClick={() => {
+                  setShowNotifDropdown(!showNotifDropdown);
+                  if (!showNotifDropdown) fetchNotifications();
+                }}
+                className="relative p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+              >
+                <Bell className="w-5 h-5" />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+                )}
+              </button>
+
+              {showNotifDropdown && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowNotifDropdown(false)} />
+                  <div className="absolute right-0 mt-2 w-80 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-40">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                      <span className="text-sm font-semibold text-white">Notifications</span>
+                      {notifications.filter(n => !n.read).length > 0 && (
+                        <button
+                          onClick={markAllRead}
+                          className="text-xs text-blue-500 hover:text-blue-400 font-medium"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-60 overflow-y-auto divide-y divide-zinc-900">
+                      {notifLoading ? (
+                        <div className="p-4 text-center text-xs text-white/50 animate-pulse">Loading...</div>
+                      ) : notifications.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-white/40">No notifications</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div key={n.id || Math.random().toString()} className={`p-4 hover:bg-white/5 transition-colors text-left ${!n.read ? 'bg-blue-500/5' : ''}`}>
+                            <p className="text-xs font-semibold text-white">{n.title || 'Notification'}</p>
+                            <p className="text-[11px] text-white/60 mt-1">{n.message || n.body}</p>
+                            <p className="text-[9px] text-white/40 mt-1">
+                              {n.createdAt ? new Date(n.createdAt).toLocaleTimeString() : 'Just now'}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
           </div>
         </header>

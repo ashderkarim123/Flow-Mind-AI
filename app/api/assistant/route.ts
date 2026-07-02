@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CHATBOT_API = "https://aiassitance.swedenrelocators.se";
+const OPENROUTER_API_KEY = "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";
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+// Using a capable, fast model available on OpenRouter
+const ASSISTANT_MODEL = "google/gemini-2.5-flash";
 const BACKEND_API = "http://localhost:8000";
 
 // Cache the node catalog for 5 minutes so we don't hit the backend on every message
@@ -45,28 +48,56 @@ async function getNodeCatalog(): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const userQuestion: string = body.question || "";
+    const sessionId: string = body.session_id || "";
+    const currentState: any = body.current_state || null;
 
-    // Enrich the question with the live node catalog so the chatbot knows
-    // exact output field names and doesn't hallucinate variable references
+    // Enrich system prompt with live node catalog
     const catalog = await getNodeCatalog();
-    const enrichedBody = catalog
-      ? { ...body, node_catalog: catalog }
-      : body;
 
-    const upstream = await fetch(`${CHATBOT_API}/query`, {
+    const systemPrompt = [
+      "You are FlowMind AI Workflow Assistant — an expert at designing automation workflows.",
+      "Help users build workflows using nodes, edges, and triggers.",
+      "When suggesting variable references, always use the exact output field names from the node catalog below.",
+      "Keep answers concise, practical, and actionable. Use bullet points where helpful.",
+      catalog ? `\n${catalog}` : "",
+      currentState ? `\nCurrent workflow canvas state:\n${JSON.stringify(currentState, null, 2)}` : "",
+    ].filter(Boolean).join("\n");
+
+    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(enrichedBody),
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "FlowMind AI Workflow Assistant",
+      },
+      body: JSON.stringify({
+        model: ASSISTANT_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userQuestion },
+        ],
+        temperature: 0.7,
+        max_tokens: 1024,
+      }),
     });
 
-    const data = await upstream.json();
-
-    if (!upstream.ok) {
-      return NextResponse.json(data, { status: upstream.status });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("OpenRouter error:", response.status, errText);
+      return NextResponse.json(
+        { error: "OpenRouter API error", detail: errText },
+        { status: response.status }
+      );
     }
 
-    return NextResponse.json(data);
+    const data = await response.json();
+    const answer = data.choices?.[0]?.message?.content ?? "I couldn't generate a response. Please try again.";
+
+    return NextResponse.json({ answer, sources: [] });
   } catch (err: any) {
+    console.error("Assistant route error:", err);
     return NextResponse.json(
       { error: "Failed to reach assistant service", detail: err?.message },
       { status: 502 }

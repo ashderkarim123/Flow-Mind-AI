@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Users, Mail, Shield, MoreHorizontal, UserPlus, X, Search, Check, AlertTriangle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
+import { db, auth } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+
 interface TeamMember {
   id: string;
   name: string;
@@ -26,24 +29,72 @@ export default function TeamView() {
 
   const fetchTeamMembers = async () => {
     try {
-      const token = localStorage.getItem('backend_session_token');
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${backendUrl}/api/v1/team`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data.members || []);
+      const user = auth.currentUser;
+      if (!user) {
+        setError("You must be signed in to view team members.");
+        setLoading(false);
+        return;
       }
-    } catch (e) {
+
+      const uid = user.uid;
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      // Always include the current user as owner
+      const ownerMember: TeamMember = {
+        id: uid,
+        name: user.displayName || user.email || "You",
+        email: user.email || "",
+        role: "Admin",
+        status: "Active",
+        joinedAt: user.metadata.creationTime || new Date().toISOString(),
+      };
+
+      if (!userDoc.exists()) {
+        // No user doc yet — just show the current user
+        setMembers([ownerMember]);
+        setLoading(false);
+        return;
+      }
+
+      const userData = userDoc.data();
+      const workspace = userData?.workspace || {};
+      const storedMembers: any[] = workspace.members || [];
+
+      const teamMembers: TeamMember[] = [ownerMember];
+
+      for (const member of storedMembers) {
+        teamMembers.push({
+          id: member.id,
+          name: member.name || member.email,
+          email: member.email,
+          role: member.role || "Viewer",
+          status: member.status || "Pending",
+          joinedAt: member.joinedAt,
+        });
+      }
+
+      setMembers(teamMembers);
+      setError(null);
+    } catch (e: any) {
       console.error("Error fetching team members:", e);
+      setError(e.message || "Failed to load team members");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTeamMembers();
+    // Wait for auth state to be ready
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        fetchTeamMembers();
+      } else {
+        setLoading(false);
+        setError("You must be signed in to view team members.");
+      }
+    });
+    return () => unsubscribe();
   }, []);
   
   const handleInvite = async (e: React.FormEvent) => {
@@ -53,43 +104,110 @@ export default function TeamView() {
     setError(null);
     
     try {
-      const token = localStorage.getItem('backend_session_token');
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
-      
-      const res = await fetch(`${backendUrl}/api/v1/team/invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole })
-      });
-      
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to send invite');
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("You must be signed in to invite team members.");
       }
-      
-      // Update local state or refresh from backend
-      setMembers([...members, data.member]);
+
+      const uid = user.uid;
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      let existingMembers: any[] = [];
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        existingMembers = userData?.workspace?.members || [];
+      }
+
+      // Check if already invited
+      if (existingMembers.some((m: any) => m.email === inviteEmail)) {
+        throw new Error("This user has already been invited.");
+      }
+
+      // Create the new member entry
+      const newMember = {
+        id: `inv_${Date.now()}`,
+        email: inviteEmail,
+        name: inviteEmail,
+        role: inviteRole,
+        status: "Pending",
+        joinedAt: new Date().toISOString(),
+      };
+
+      existingMembers.push(newMember);
+
+      // Write to Firestore (merge so we don't overwrite other fields)
+      await setDoc(userDocRef, {
+        workspace: {
+          members: existingMembers,
+        },
+      }, { merge: true });
+
+      // Update local state
+      setMembers([...members, newMember as TeamMember]);
       setInviteEmail("");
       setIsInviteModalOpen(false);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to send invitation.");
     } finally {
       setInviting(false);
     }
   };
   
-  const handleRemoveMember = (id: string) => {
-    // In a full implementation this would call an API
-    setMembers(members.filter(m => m.id !== id));
+  const handleRemoveMember = async (id: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const uid = user.uid;
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const existingMembers: any[] = userData?.workspace?.members || [];
+        const updatedMembers = existingMembers.filter((m: any) => m.id !== id);
+
+        await setDoc(userDocRef, {
+          workspace: {
+            members: updatedMembers,
+          },
+        }, { merge: true });
+      }
+
+      setMembers(members.filter(m => m.id !== id));
+    } catch (err: any) {
+      setError(err.message || "Failed to remove member.");
+    }
   };
   
-  const handleRoleChange = (id: string, newRole: 'Admin' | 'Editor' | 'Viewer') => {
-    // In a full implementation this would call an API
-    setMembers(members.map(m => m.id === id ? { ...m, role: newRole } : m));
+  const handleRoleChange = async (id: string, newRole: 'Admin' | 'Editor' | 'Viewer') => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const uid = user.uid;
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const existingMembers: any[] = userData?.workspace?.members || [];
+        const updatedMembers = existingMembers.map((m: any) =>
+          m.id === id ? { ...m, role: newRole } : m
+        );
+
+        await setDoc(userDocRef, {
+          workspace: {
+            members: updatedMembers,
+          },
+        }, { merge: true });
+      }
+
+      setMembers(members.map(m => m.id === id ? { ...m, role: newRole } : m));
+    } catch (err: any) {
+      setError(err.message || "Failed to update role.");
+    }
   };
 
   const filteredMembers = members.filter(m => 
@@ -99,6 +217,28 @@ export default function TeamView() {
 
   return (
     <div className="space-y-8">
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-amber-100">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-300 mt-0.5" />
+            <div>
+              <p className="font-medium">Unable to load team members</p>
+              <p className="text-sm text-amber-100/80">{error}</p>
+              <button
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  fetchTeamMembers();
+                }}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

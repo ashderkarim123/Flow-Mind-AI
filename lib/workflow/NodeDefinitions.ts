@@ -89,8 +89,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
       },
     },
   },
-  Scheduling: {
-    type: 'Scheduling',
+  Schedule: {
+    type: 'Schedule',
     name: 'Schedule',
     description: 'Start workflow at scheduled times using a cron expression.',
     category: 'Triggers',
@@ -330,8 +330,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
   },
 
   // Communication (continued)
-  EmailSend: {
-    type: 'EmailSend',
+  SendEmail: {
+    type: 'SendEmail',
     name: 'Email Send',
     description: 'Send an email via SMTP. Enter credentials directly or configure via backend .env.',
     category: 'Communication',
@@ -523,8 +523,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
       },
     },
   },
-  HTTPRequest: {
-    type: 'HTTPRequest',
+  HttpRequest: {
+    type: 'HttpRequest',
     name: 'HTTP Request',
     description: 'Make an HTTP request to any URL. Supports GET, POST, PUT, DELETE, PATCH.',
     category: 'Communication',
@@ -607,8 +607,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
   },
 
   // Logic
-  Conditional: {
-    type: 'Conditional',
+  IfCondition: {
+    type: 'IfCondition',
     name: 'If Condition',
     description: 'Branch workflow execution based on a comparison. Connect two downstream nodes — click the T/F badge on each connection to mark it as the true or false branch.',
     category: 'Logic',
@@ -1013,8 +1013,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
     },
   },
 
-  'Variable Setter': {
-    type: 'Variable Setter',
+  SetVariable: {
+    type: 'SetVariable',
     name: 'Variable Setter',
     description: 'Store a value in a workflow variable for later use',
     category: 'Data',
@@ -1803,11 +1803,13 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         description: 'GPT model to use',
         required: true,
         options: [
+          { label: 'GPT-4.1 (latest & smartest)', value: 'gpt-4.1' },
+          { label: 'GPT-4.1 Mini (fast & cheap)', value: 'gpt-4.1-mini' },
+          { label: 'GPT-4.1 Nano (fastest)', value: 'gpt-4.1-nano' },
           { label: 'GPT-4o (recommended)', value: 'gpt-4o' },
-          { label: 'GPT-4o Mini (fast & cheap)', value: 'gpt-4o-mini' },
-          { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
-          { label: 'GPT-4', value: 'gpt-4' },
-          { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
+          { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+          { label: 'o4-mini (reasoning)', value: 'o4-mini' },
+          { label: 'o3 (advanced reasoning)', value: 'o3' },
         ],
         group: 'Model',
       },
@@ -1906,10 +1908,11 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         description: 'Claude model to use',
         required: true,
         options: [
-          { label: 'Claude 3.5 Sonnet (recommended)', value: 'claude-3-5-sonnet-20241022' },
-          { label: 'Claude 3 Opus (most capable)', value: 'claude-3-opus-20240229' },
-          { label: 'Claude 3 Sonnet (balanced)', value: 'claude-3-sonnet-20240229' },
-          { label: 'Claude 3 Haiku (fastest)', value: 'claude-3-haiku-20240307' },
+          { label: 'Claude Opus 4.5 (most capable)', value: 'claude-opus-4-5' },
+          { label: 'Claude Sonnet 4.5 (recommended)', value: 'claude-sonnet-4-5' },
+          { label: 'Claude Haiku 4.5 (fastest)', value: 'claude-haiku-4-5' },
+          { label: 'Claude 3.7 Sonnet', value: 'claude-3-7-sonnet-20250219' },
+          { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022' },
         ],
         group: 'Model',
       },
@@ -1998,11 +2001,13 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         description: 'Groq model to use',
         required: true,
         options: [
-          { label: 'Llama 3.3 70B (recommended)', value: 'llama-3.3-70b-versatile' },
+          { label: 'Llama 4 Scout (recommended)', value: 'meta-llama/llama-4-scout-17b-16e-instruct' },
+          { label: 'Llama 4 Maverick (capable)', value: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+          { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile' },
           { label: 'Llama 3.1 8B (fastest)', value: 'llama-3.1-8b-instant' },
-          { label: 'Llama 3 8B', value: 'llama3-8b-8192' },
-          { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-32768' },
+          { label: 'Deepseek R1 Distill 70B', value: 'deepseek-r1-distill-llama-70b' },
           { label: 'Gemma 2 9B', value: 'gemma2-9b-it' },
+          { label: 'Qwen QWQ 32B (reasoning)', value: 'qwen-qwq-32b' },
         ],
         group: 'Model',
       },

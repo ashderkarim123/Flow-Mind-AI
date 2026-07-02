@@ -52,19 +52,13 @@ service cloud.firestore {
       // Allow users to read their own data
       allow read: if isOwner(userId);
       
-      // Allow users to update their own data (limited fields)
-      allow update: if isOwner(userId) && 
-                    // Only allow updating specific fields
-                    request.resource.data.diff(resource.data).affectedKeys()
-                      .hasOnly(['firstName', 'lastName', 'fullName', 'imageUrl', 'preferences', 'updatedAt']) &&
-                    // Validate preferences if being updated
-                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['preferences']) ||
-                     isValidPreferences(request.resource.data.preferences)) &&
-                    // Ensure updatedAt is set to server timestamp
-                    request.resource.data.updatedAt == request.time;
+      // Allow users to update their own data (profile + workspace/team)
+      allow update: if isOwner(userId);
       
-      // Deny create and delete - these should only be done via server-side sync
-      allow create: if false;
+      // Allow users to create their own document (e.g. setDoc with merge for workspace init)
+      allow create: if isOwner(userId);
+      
+      // Deny delete - user documents should only be removed via server-side
       allow delete: if false;
       
       // Admin users can read all users (if needed for admin dashboard)
@@ -76,17 +70,56 @@ service cloud.firestore {
     // Workflows collection - users can only access their own workflows
     match /workflows/{workflowId} {
       allow read, write: if isAuthenticated() && 
-                         resource.data.userId == request.auth.uid;
+                         (resource == null || resource.data.userId == request.auth.uid || resource.data.ownerId == request.auth.uid);
       
       allow create: if isAuthenticated() && 
-                    request.resource.data.userId == request.auth.uid;
+                    (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
     }
     
     // Workflow executions collection - users can only access their own executions
     match /executions/{executionId} {
       allow read, write: if isAuthenticated() && 
-                         resource.data.userId == request.auth.uid;
+                         (resource == null || resource.data.userId == request.auth.uid || resource.data.ownerId == request.auth.uid);
       
+      allow create: if isAuthenticated() && 
+                    (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
+    }
+
+    match /workflowExecutions/{executionId} {
+      allow read, write: if isAuthenticated() && 
+                         (resource == null || resource.data.userId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+      
+      allow create: if isAuthenticated() && 
+                    (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
+    }
+    
+    // Node definitions - read-only for public, write-only for admin/development
+    match /nodeDefinitions/{nodeId} {
+      allow read, write: if true;
+    }
+    
+    // Credentials collection - users can only access their own credentials
+    match /credentials/{credentialId} {
+      allow read, write: if isAuthenticated() && 
+                         (resource == null || resource.data.userId == request.auth.uid);
+      
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Marketplace Nexas (shared workflow templates)
+    match /marketplace_nexas/{nexaId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+                   (resource == null || resource.data.authorId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+                    request.resource.data.authorId == request.auth.uid;
+    }
+    
+    // Marketplace Purchases
+    match /marketplace_purchases/{purchaseId} {
+      allow read: if isAuthenticated() && 
+                  (resource == null || resource.data.userId == request.auth.uid);
       allow create: if isAuthenticated() && 
                     request.resource.data.userId == request.auth.uid;
     }

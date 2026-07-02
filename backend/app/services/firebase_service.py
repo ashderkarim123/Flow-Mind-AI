@@ -43,7 +43,7 @@ class FirebaseService:
     async def verify_token(self, id_token: str) -> Optional[Dict[str, Any]]:
         """Verify Firebase ID token and return user info"""
         try:
-            decoded_token = auth.verify_id_token(id_token)
+            decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
             return decoded_token
         except Exception as e:
             logger.error(f"Token verification failed: {str(e)}")

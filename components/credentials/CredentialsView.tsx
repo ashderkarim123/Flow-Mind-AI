@@ -361,8 +361,13 @@ export default function CredentialsView() {
         </div>
       </div>
 
-      {/* Security Overview */}
-      <div className="space-y-6">
+      <Tabs defaultValue="credentials" className="space-y-6">
+        <TabsList className="bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-full max-w-md grid grid-cols-2">
+          <TabsTrigger value="credentials" className="text-white data-[state=active]:bg-[#1D4ED8] data-[state=active]:text-white">Secure Credentials</TabsTrigger>
+          <TabsTrigger value="webhooks" className="text-white data-[state=active]:bg-[#1D4ED8] data-[state=active]:text-white">Webhooks & Triggers</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="credentials" className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-white mb-4">Security Overview</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -444,7 +449,6 @@ export default function CredentialsView() {
                 </div>
               </CardContent>
             </Card>
-          </div>
         </div>
       </div>
 
@@ -747,6 +751,13 @@ export default function CredentialsView() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        <TabsContent value="webhooks" className="space-y-6">
+          <WebhooksTab />
+        </TabsContent>
+      </Tabs>
+
       {/* Shopify Connection Modal */}
       <ShopifyConnectionModal
         open={showShopifyModal}
@@ -775,6 +786,124 @@ export default function CredentialsView() {
         open={showInstagramModal}
         onClose={() => setShowInstagramModal(false)}
       />
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────────
+   Webhooks Tab
+   Module 10 — API & Webhook Module (FR14)
+────────────────────────────────────────────── */
+function WebhooksTab() {
+  const [webhooks, setWebhooks] = useState([
+    { id: 'wh-1', name: 'Shopify Order Trigger', url: 'https://flowmind.vercel.app/api/webhooks/shopify', workflow: 'Shopify Auto-Fulfillment', status: 'active', created: '2026-06-15' },
+    { id: 'wh-2', name: 'WhatsApp Bot Webhook', url: 'https://flowmind.vercel.app/api/webhooks/whatsapp', workflow: 'Support Auto-Reply', status: 'active', created: '2026-06-20' },
+  ]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState('');
+  const [workflow, setWorkflow] = useState('');
+
+  const handleCreate = () => {
+    if (!name || !workflow) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    const newWh = {
+      id: `wh-${Date.now()}`,
+      name,
+      url: `https://flowmind.vercel.app/api/webhooks/custom_${Math.random().toString(36).substring(7)}`,
+      workflow,
+      status: 'active',
+      created: new Date().toISOString().split('T')[0]
+    };
+    setWebhooks([...webhooks, newWh]);
+    setName('');
+    setWorkflow('');
+    setShowCreate(false);
+    toast.success("Webhook Trigger created successfully!");
+  };
+
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast.success("Webhook URL copied to clipboard!");
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Zap className="w-5 h-5 text-[#1D4ED8]" /> Webhook & External Triggers
+          </h2>
+          <p className="text-white/60 text-sm mt-1">Trigger workflows externally via HTTP POST requests.</p>
+        </div>
+        <Button onClick={() => setShowCreate(!showCreate)} className="bg-[#1D4ED8] hover:bg-[#1E40AF] text-white flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Create Webhook
+        </Button>
+      </div>
+
+      {showCreate && (
+        <Card className="bg-[#1a1410]/80 backdrop-blur-xl border border-white/5 rounded-2xl text-white">
+          <CardHeader>
+            <CardTitle className="text-base text-white">New Webhook Trigger</CardTitle>
+            <CardDescription className="text-white/60">Configure a webhook trigger for your workflow.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-white/60 text-xs font-medium mb-1 block">Webhook Name</label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Stripe Payment Success" className="bg-black/40 border-white/10 text-white focus:border-[#1D4ED8]" />
+              </div>
+              <div>
+                <label className="text-white/60 text-xs font-medium mb-1 block">Target Workflow</label>
+                <Input value={workflow} onChange={e => setWorkflow(e.target.value)} placeholder="e.g. Email Receipt Delivery" className="bg-black/40 border-white/10 text-white focus:border-[#1D4ED8]" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button onClick={handleCreate} className="bg-[#1D4ED8] hover:bg-[#1E40AF] text-white">Create Trigger</Button>
+              <Button onClick={() => setShowCreate(false)} variant="outline" className="border-white/10 text-white hover:bg-white/5">Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-4">
+        {webhooks.map(wh => (
+          <Card key={wh.id} className="bg-[#1a1410]/80 backdrop-blur-xl border border-white/5 rounded-2xl text-white">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-white">{wh.name}</h3>
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 py-0.5 px-2 text-xs">Active</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-lg px-3 py-2 text-xs font-mono text-white/90">
+                    <span className="truncate flex-1">{wh.url}</span>
+                    <Button onClick={() => copyUrl(wh.url)} variant="ghost" size="sm" className="h-7 text-blue-400 hover:text-blue-300 hover:bg-white/5">Copy</Button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
+                    <span>Workflow: <strong className="text-white">{wh.workflow}</strong></span>
+                    <span>Created: {wh.created}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="bg-blue-500/5 border border-blue-500/20 rounded-2xl text-white">
+        <CardContent className="p-6 flex gap-4">
+          <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="font-semibold text-blue-400 text-sm">How to use webhook triggers</h4>
+            <p className="text-blue-300/80 text-xs">
+              Send a HTTP POST request to the webhook URL. The body must be valid JSON. 
+              The payload will be parsed and injected into your workflow execution context as input.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

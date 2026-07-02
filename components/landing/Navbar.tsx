@@ -119,8 +119,8 @@ export default function Navbar() {
     if (user?.displayName) {
       return user.displayName.split(' ')[0];
     }
-    if (backendUser?.first_name) {
-      return backendUser.first_name;
+    if ((backendUser as any)?.first_name) {
+      return (backendUser as any).first_name;
     }
     return 'User';
   };
@@ -129,11 +129,11 @@ export default function Navbar() {
     if (user?.displayName) {
       return user.displayName;
     }
-    if (backendUser?.first_name && backendUser?.last_name) {
-      return `${backendUser.first_name} ${backendUser.last_name}`;
+    if ((backendUser as any)?.first_name && (backendUser as any)?.last_name) {
+      return `${(backendUser as any).first_name} ${(backendUser as any).last_name}`;
     }
-    if (backendUser?.first_name) {
-      return backendUser.first_name;
+    if ((backendUser as any)?.first_name) {
+      return (backendUser as any).first_name;
     }
     return 'User';
   };

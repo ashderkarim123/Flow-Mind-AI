@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,17 +14,15 @@ import {
 import Link from 'next/link';
 
 /* ─── Background node ─────────────────────────────── */
-function FloatingNode({ x, y, delay, size = 5 }: { x: number; y: number; delay: number; size?: number }) {
+function FloatingNode({ x, y, size = 5 }: { x: number; y: number; size?: number }) {
   return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
+    <div
+      className="absolute rounded-full pointer-events-none opacity-80"
       style={{
         left: `${x}%`, top: `${y}%`, width: size, height: size,
-        background: 'radial-gradient(circle, #9D6EFF, #7C3AED)',
-        boxShadow: `0 0 ${size * 2}px rgba(124,58,237,0.5)`,
+        background: 'radial-gradient(circle, rgba(157,110,255,0.35), rgba(124,58,237,0.2))',
+        boxShadow: `0 0 ${size * 2}px rgba(124,58,237,0.25)`,
       }}
-      animate={{ opacity: [0.2, 0.9, 0.2], scale: [1, 1.5, 1], y: [0, -16, 0] }}
-      transition={{ duration: 4 + delay, repeat: Infinity, delay, ease: 'easeInOut' }}
     />
   );
 }
@@ -107,19 +104,11 @@ export default function SignUpPage() {
         <div className="absolute inset-0 pointer-events-none">
           {NODES.map((n, i) => <FloatingNode key={i} {...n} />)}
         </div>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 glass-card rounded-2xl p-10 max-w-sm mx-4 text-center"
-        >
+        <div className="relative z-10 glass-card rounded-2xl p-10 max-w-sm mx-4 text-center">
           <div className="h-0.5 w-full bg-gradient-to-r from-violet-600 via-violet-400 to-cyan-500 absolute top-0 left-0 rounded-t-2xl" />
-          <motion.div
-            initial={{ scale: 0 }} animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-            className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4"
-          >
+          <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-          </motion.div>
+          </div>
           <h2 className="text-xl font-bold text-white font-outfit mb-2">Account Created!</h2>
           <p className="text-white/60 text-sm font-inter mb-6 leading-relaxed">
             A verification email has been sent to <span className="text-violet-400 font-medium">{email}</span>.
@@ -132,7 +121,7 @@ export default function SignUpPage() {
           >
             Go to Sign In
           </Button>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -155,12 +144,7 @@ export default function SignUpPage() {
 
       <div className="relative z-10 w-full max-w-md px-4">
         {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-6"
-        >
+        <div className="text-center mb-6">
           <div className="inline-flex items-center gap-3 mb-2">
             <div className="relative w-10 h-10">
               <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500 opacity-20 blur-md" />
@@ -174,15 +158,10 @@ export default function SignUpPage() {
               <p className="text-xs text-violet-400 font-medium">Intelligent Workflow Automation</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="relative"
-        >
+        <div className="relative">
           <div className="absolute -inset-1 rounded-2xl opacity-25 blur-lg"
             style={{ background: 'linear-gradient(135deg, #7C3AED, #06B6D4)' }} />
 
@@ -196,17 +175,12 @@ export default function SignUpPage() {
               </div>
 
               {/* Error */}
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="flex items-center gap-2 text-red-400 bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-4"
-                  >
-                    <AlertCircle size={15} className="shrink-0" />
-                    <span className="text-xs font-medium font-inter">{error}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {error && (
+                <div className="flex items-center gap-2 text-red-400 bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-4">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span className="text-xs font-medium font-inter">{error}</span>
+                </div>
+              )}
 
               <form onSubmit={handleSignUp} className="space-y-3.5">
                 {/* Full name */}
@@ -377,13 +351,10 @@ export default function SignUpPage() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Feature badges */}
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-          className="mt-5 flex items-center justify-center gap-6 text-white/30 text-xs font-inter"
-        >
+        <div className="mt-5 flex items-center justify-center gap-6 text-white/30 text-xs font-inter">
           {[
             { icon: <Zap size={10} />, label: 'AI-Powered' },
             { icon: <Workflow size={10} />, label: 'Visual Builder' },
@@ -394,7 +365,7 @@ export default function SignUpPage() {
               {b.label}
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </div>
   );

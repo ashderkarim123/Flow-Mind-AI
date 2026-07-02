@@ -476,7 +476,7 @@ class UserSyncService {
             ...existingData.metadata,
             ...transformedUser.metadata
           },
-          createdAt: existingData.createdAt,
+          createdAt: existingData.createdAt || serverTimestamp() as Timestamp,
           updatedAt: serverTimestamp() as Timestamp
         };
         

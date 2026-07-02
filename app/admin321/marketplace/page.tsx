@@ -277,7 +277,7 @@ export default function MarketplaceAdminPage() {
     }
   };
 
-  const downloadTransactionPDF = async (transaction: Transaction) => {
+  const downloadTransactionPDF = async (transaction: any) => {
     try {
       setDownloadingPDF(transaction.id);
       
@@ -355,7 +355,7 @@ export default function MarketplaceAdminPage() {
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6 bg-white/5 border border-white/10">
           <TabsTrigger value="overview" className="data-[state=active]:text-black data-[state=inactive]:text-white/60">Overview</TabsTrigger>
-          <TabsTrigger value="listings" onClick={fetchListings} className="data-[state=active]:text-black data-[state=inactive]:text-white/60">All Listings</TabsTrigger>
+          <TabsTrigger value="listings" onClick={() => fetchListings()} className="data-[state=active]:text-black data-[state=inactive]:text-white/60">All Listings</TabsTrigger>
           <TabsTrigger value="nexas" className="data-[state=active]:text-black data-[state=inactive]:text-white/60">Pending</TabsTrigger>
           <TabsTrigger value="sellers" className="data-[state=active]:text-black data-[state=inactive]:text-white/60">Sellers</TabsTrigger>
           <TabsTrigger value="disputes" className="data-[state=active]:text-black data-[state=inactive]:text-white/60">Disputes</TabsTrigger>

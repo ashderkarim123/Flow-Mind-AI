@@ -62,7 +62,7 @@ export const NodeFieldSchema = z.object({
   
   // Field grouping
   group: z.string().optional(),
-  order: z.number().default(0)
+  order: z.number().optional()
 });
 
 export type NodeField = z.infer<typeof NodeFieldSchema>;

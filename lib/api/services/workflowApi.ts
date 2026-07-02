@@ -126,22 +126,26 @@ export async function updateWorkflow(
   workflowId: string,
   updates: Partial<Workflow>
 ): Promise<Workflow> {
+  const request = workflowToUpdateRequest(updates);
+  let response;
   try {
-    const request = workflowToUpdateRequest(updates);
-    const response = await apiClient.put<WorkflowDetailResponse>(
+    response = await apiClient.put<WorkflowDetailResponse>(
       `${WORKFLOW_BASE_PATH}/${workflowId}`,
       request
     );
-    
-    if (!response.data.success || !response.data.workflow) {
-      throw new Error('Failed to update workflow');
-    }
-    
-    return backendWorkflowToFrontend(response.data.workflow);
   } catch (error: any) {
-    console.error('Update workflow error:', error);
-    throw new Error(error.message || 'Failed to update workflow');
+    const msg = error?.message || 'Failed to update workflow';
+    console.error('Update workflow error:', msg, { status: error?.status, code: error?.error });
+    const err = new Error(msg) as any;
+    err.status = error?.status;
+    throw err;
   }
+
+  if (!response.data.success || !response.data.workflow) {
+    throw new Error('Failed to update workflow: backend returned failure');
+  }
+
+  return backendWorkflowToFrontend(response.data.workflow);
 }
 
 /**
@@ -202,15 +206,16 @@ export async function saveWorkflow(workflow: Workflow): Promise<Workflow> {
     try {
       return await updateWorkflow(workflow.id, workflow);
     } catch (error: any) {
-      // If workflow not found, create it instead
-      if (error.message?.includes('not found') || error.message?.includes('404') || 
-          error.response?.status === 404) {
-        console.log(`⚠️ Workflow ${workflow.id} not found, creating new workflow instead`);
-        // Create new workflow (backend will generate new ID)
+      const is404 =
+        error?.status === 404 ||
+        error?.response?.status === 404 ||
+        error?.message?.includes('not found') ||
+        error?.message?.includes('404');
+      if (is404) {
+        console.log(`⚠️ Workflow ${workflow.id} not found in backend, creating new workflow instead`);
         const { id, ...workflowWithoutId } = workflow;
         return await createWorkflow(workflowWithoutId as Workflow);
       }
-      // Re-throw other errors
       throw error;
     }
   } else {

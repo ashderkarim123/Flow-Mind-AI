@@ -2119,7 +2119,7 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '📝',
     color: '#4CAF50',
     tags: ['logging', 'debugging', 'monitoring'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
@@ -2130,6 +2130,7 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
         description: 'Severity level for the log entry',
         required: false,
         defaultValue: 'info',
+        order: 0,
         options: [
           { label: 'Debug', value: 'debug' },
           { label: 'Info', value: 'info' },
@@ -2140,19 +2141,11 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
       {
         key: 'message',
         label: 'Log Message',
-        type: 'string',
+        type: 'text',
         description: 'Custom message to include in the log',
         required: false,
-        defaultValue: 'Workflow node execution'
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data to be logged',
-        required: false
+        defaultValue: 'Workflow node execution',
+        order: 1
       }
     ],
     outputs: [
@@ -2235,16 +2228,17 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: ':variables:',
     color: '#2196F3',
     tags: ['variables', 'data', 'state'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'variableName',
         label: 'Variable Name',
-        type: 'string',
+        type: 'text',
         description: 'Name of the variable to set',
-        required: true
+        required: true,
+        order: 0
       },
       {
         key: 'valueSource',
@@ -2253,6 +2247,7 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
         description: 'Where to get the value from',
         required: true,
         defaultValue: 'config',
+        order: 1,
         options: [
           { label: 'From Configuration', value: 'config' },
           { label: 'From Input Data', value: 'input' }
@@ -2261,18 +2256,10 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
       {
         key: 'variableValue',
         label: 'Variable Value',
-        type: 'string',
+        type: 'text',
         description: 'Value to set (used when Value Source is Configuration)',
-        required: false
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data to use as variable value (when Value Source is Input Data)',
-        required: false
+        required: false,
+        order: 2
       }
     ],
     outputs: [
@@ -2352,16 +2339,17 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '❓',
     color: '#9C27B0',
     tags: ['condition', 'comparison', 'logic'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'leftValue',
         label: 'Left Value',
-        type: 'string',
+        type: 'text',
         description: 'Left side of the comparison',
-        required: true
+        required: true,
+        order: 0
       },
       {
         key: 'operator',
@@ -2369,6 +2357,7 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
         type: 'select',
         description: 'Comparison operator',
         required: true,
+        order: 1,
         options: [
           { label: 'Equals', value: '==' },
           { label: 'Not Equals', value: '!=' },
@@ -2383,18 +2372,10 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
       {
         key: 'rightValue',
         label: 'Right Value',
-        type: 'string',
+        type: 'text',
         description: 'Right side of the comparison',
-        required: true
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data for variable interpolation',
-        required: false
+        required: true,
+        order: 2
       }
     ],
     outputs: [
@@ -2487,16 +2468,17 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '🔢',
     color: '#FF9800',
     tags: ['counter', 'increment', 'decrement'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'counterName',
         label: 'Counter Name',
-        type: 'string',
+        type: 'text',
         description: 'Name of the counter to modify',
-        required: true
+        required: true,
+        order: 0
       },
       {
         key: 'operation',
@@ -2505,6 +2487,7 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
         description: 'Whether to increment or decrement',
         required: true,
         defaultValue: 'increment',
+        order: 1,
         options: [
           { label: 'Increment', value: 'increment' },
           { label: 'Decrement', value: 'decrement' }
@@ -2516,16 +2499,8 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
         type: 'number',
         description: 'Amount to increment or decrement by',
         required: false,
-        defaultValue: 1
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data for variable interpolation',
-        required: false
+        defaultValue: 1,
+        order: 2
       }
     ],
     outputs: [
@@ -2596,14 +2571,14 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '⏱️',
     color: '#00BCD4',
     tags: ['timer', 'performance', 'benchmark'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'timerName',
         label: 'Timer Name',
-        type: 'string',
+        type: 'text',
         description: 'Name of the timer to use',
         required: true
       },
@@ -2619,15 +2594,6 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
           { label: 'Stop', value: 'stop' },
           { label: 'Lap', value: 'lap' }
         ]
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data for variable interpolation',
-        required: false
       }
     ],
     outputs: [
@@ -2700,14 +2666,14 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '🔤',
     color: '#E91E63',
     tags: ['string', 'text', 'formatting'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'input_field',
         label: 'Input Field',
-        type: 'string',
+        type: 'text',
         description: 'Field from input data to manipulate (leave empty for direct input)',
         required: false
       },
@@ -2724,15 +2690,6 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
           { label: 'Capitalize', value: 'capitalize' },
           { label: 'Reverse', value: 'reverse' }
         ]
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data containing the string to manipulate',
-        required: true
       }
     ],
     outputs: [
@@ -2829,14 +2786,14 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '#️⃣',
     color: '#8BC34A',
     tags: ['number', 'format', 'currency'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'input_field',
         label: 'Input Field',
-        type: 'string',
+        type: 'text',
         description: 'Field from input data to format (leave empty for direct input)',
         required: false
       },
@@ -2859,25 +2816,16 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
       {
         key: 'prefix',
         label: 'Prefix',
-        type: 'string',
+        type: 'text',
         description: 'Text to add before the number (e.g., currency symbol)',
         required: false
       },
       {
         key: 'suffix',
         label: 'Suffix',
-        type: 'string',
+        type: 'text',
         description: 'Text to add after the number',
         required: false
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data containing the number to format',
-        required: true
       }
     ],
     outputs: [
@@ -2985,14 +2933,14 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
     icon: '📅',
     color: '#795548',
     tags: ['date', 'time', 'format'],
-    trigger: null,
+    trigger: undefined,
     isStartNode: false,
     isEndNode: false,
     fields: [
       {
         key: 'input_field',
         label: 'Input Field',
-        type: 'string',
+        type: 'text',
         description: 'Field from input data containing the date (leave empty for direct input)',
         required: false
       },
@@ -3023,15 +2971,6 @@ export const seedNodes: Omit<NodeDefinition, 'id' | 'createdAt' | 'updatedAt'>[]
           { label: 'DD/MM/YYYY', value: 'DD/MM/YYYY' },
           { label: 'Full ISO String', value: 'iso' }
         ]
-      }
-    ],
-    inputs: [
-      {
-        key: 'data',
-        label: 'Input Data',
-        type: 'any',
-        description: 'Data containing the date to format',
-        required: true
       }
     ],
     outputs: [

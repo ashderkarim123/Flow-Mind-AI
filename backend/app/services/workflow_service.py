@@ -8,6 +8,40 @@ from app.schemas.workflow_schema import WorkflowV2
 logger = logging.getLogger(__name__)
 
 
+def _workflow_created_at_value(workflow_data: Dict[str, Any]) -> float:
+    """Return a sortable timestamp for workflow createdAt values."""
+    created_at = workflow_data.get('createdAt')
+
+    if created_at is None:
+        return 0.0
+
+    if isinstance(created_at, datetime):
+        return created_at.timestamp()
+
+    if hasattr(created_at, 'to_datetime'):
+        return created_at.to_datetime().timestamp()
+
+    if hasattr(created_at, 'timestamp'):
+        return created_at.timestamp()
+
+    if isinstance(created_at, str):
+        try:
+            return datetime.fromisoformat(created_at.replace('Z', '+00:00')).timestamp()
+        except ValueError:
+            return 0.0
+
+    return 0.0
+
+
+def _sort_workflows_by_created_at(workflows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sort workflows by newest createdAt first without requiring a Firestore index."""
+    return sorted(
+        workflows,
+        key=lambda workflow: (_workflow_created_at_value(workflow), workflow.get('id', '')),
+        reverse=True,
+    )
+
+
 class WorkflowService:
     def __init__(self):
         self.db = firestore.client()
@@ -157,30 +191,23 @@ class WorkflowService:
         Get all workflows for a user with pagination
         """
         try:
-            # Build query
+            # Keep the Firestore query index-friendly by only filtering on userId.
+            # Status filtering and sorting happen in memory to avoid composite index requirements.
             query = self.db.collection(self.workflows_collection).where('userId', '==', user_id)
-            
-            # Filter by status if provided
+            all_workflow_docs = list(query.stream())
+
+            workflows = [doc.to_dict() for doc in all_workflow_docs]
+
             if status:
-                query = query.where('status', '==', status)
-            
-            # Order by creation date (newest first)
-            query = query.order_by('createdAt', direction=firestore.Query.DESCENDING)
-            
-            # Get all workflows for counting
-            all_workflows = list(query.stream())
-            total = len(all_workflows)
+                workflows = [workflow for workflow in workflows if workflow.get('status') == status]
+
+            workflows = _sort_workflows_by_created_at(workflows)
+            total = len(workflows)
             
             # Apply pagination
             start_index = (page - 1) * page_size
             end_index = start_index + page_size
-            paginated_workflows = all_workflows[start_index:end_index]
-            
-            # Convert to dict
-            workflows = []
-            for workflow_doc in paginated_workflows:
-                workflow_data = workflow_doc.to_dict()
-                workflows.append(workflow_data)
+            workflows = workflows[start_index:end_index]
             
             logger.info(f"✅ Retrieved {len(workflows)} workflows for user {user_id}")
             
@@ -355,27 +382,18 @@ class WorkflowService:
         Get all public/listed workflows
         """
         try:
-            # Query for workflows with canBeListed = true
-            query = (
-                self.db.collection(self.workflows_collection)
-                .where('canBeListed', '==', True)
-                .order_by('createdAt', direction=firestore.Query.DESCENDING)
-            )
-            
-            # Get all workflows for counting
-            all_workflows = list(query.stream())
-            total = len(all_workflows)
+            # Keep the Firestore query index-friendly by filtering only on canBeListed.
+            query = self.db.collection(self.workflows_collection).where('canBeListed', '==', True)
+            all_workflow_docs = list(query.stream())
+
+            workflows = [doc.to_dict() for doc in all_workflow_docs]
+            workflows = _sort_workflows_by_created_at(workflows)
+            total = len(workflows)
             
             # Apply pagination
             start_index = (page - 1) * page_size
             end_index = start_index + page_size
-            paginated_workflows = all_workflows[start_index:end_index]
-            
-            # Convert to dict
-            workflows = []
-            for workflow_doc in paginated_workflows:
-                workflow_data = workflow_doc.to_dict()
-                workflows.append(workflow_data)
+            workflows = workflows[start_index:end_index]
             
             logger.info(f"✅ Retrieved {len(workflows)} public workflows")
             

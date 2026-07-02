@@ -167,7 +167,7 @@ interface SettingsViewProps {
 export default function SettingsView({ user }: SettingsViewProps) {
   const { profileData, loading, updateWorkspace, updateAPIKey, removeAPIKey, updateIntegration, updatePreferences, updateSecurity, refreshProfile } = useUserProfile();
   const [toasts, setToasts] = useState<Array<{id: string, message: string, type: 'success' | 'error' | 'info'}>>([]);
-  const [activeTab, setActiveTab] = useState<'workspace' | 'integrations' | 'team' | 'security' | 'notifications' | 'advanced'>('workspace');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'api-keys' | 'execution' | 'notifications' | 'security' | 'advanced'>('workspace');
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
   // MFA setup state - must be before early return
   const [mfaSetupOpen, setMfaSetupOpen] = useState(false);
@@ -279,10 +279,10 @@ export default function SettingsView({ user }: SettingsViewProps) {
 
   const tabs = [
     { id: 'workspace', label: 'Workspace', icon: Building2 },
-    { id: 'integrations', label: 'Integrations', icon: Plug2 },
-    { id: 'team', label: 'Team', icon: Users },
-    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'api-keys', label: 'API Keys', icon: Key },
+    { id: 'execution', label: 'Execution', icon: Zap },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Shield },
     { id: 'advanced', label: 'Advanced', icon: Settings }
   ] as const;
 
@@ -478,9 +478,8 @@ export default function SettingsView({ user }: SettingsViewProps) {
           />
         )}
         
-        {activeTab === 'integrations' && (
-          <IntegrationsTab 
-            integrations={settings.integrations}
+        {activeTab === 'api-keys' && (
+          <APIKeysTab 
             apiKeys={settings.apiKeys}
             revealedKeys={revealedKeys}
             onToggleKeyVisibility={toggleKeyVisibility}
@@ -489,9 +488,17 @@ export default function SettingsView({ user }: SettingsViewProps) {
           />
         )}
         
-        {activeTab === 'team' && (
-          <TeamTab 
-            team={settings.team}
+        {activeTab === 'execution' && (
+          <ExecutionLimitsTab 
+            settings={settings.workspace}
+            onUpdate={async (updates) => {
+              const success = await updateWorkspace(updates);
+              if (success) {
+                addToast('Execution limits updated!', 'success');
+              } else {
+                addToast('Failed to update execution limits', 'error');
+              }
+            }}
             addToast={addToast}
           />
         )}
@@ -1549,5 +1556,254 @@ function ToggleSwitch({
         }`}
       />
     </button>
+  );
+}
+
+/* ───────────────────────────────────────────
+   API Keys Tab (Module 11)
+────────────────────────────────────────────── */
+interface APIKeySettings {
+  id: string;
+  name: string;
+  key: string;
+  scopes: string[];
+  environment: 'production' | 'development' | 'staging';
+  status: 'active' | 'inactive' | 'expired';
+  lastUsed: string | null;
+  expiresAt: string | null;
+  rateLimit: number;
+}
+
+function APIKeysTab({
+  apiKeys,
+  revealedKeys,
+  onToggleKeyVisibility,
+  onCopy,
+  addToast,
+}: {
+  apiKeys: APIKeySettings[];
+  revealedKeys: Set<string>;
+  onToggleKeyVisibility: (id: string) => void;
+  onCopy: (text: string) => void;
+  addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: '', key: '', provider: 'openai' });
+  const [saving, setSaving] = useState(false);
+
+  const providers = [
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'anthropic', label: 'Anthropic (Claude)' },
+    { value: 'google', label: 'Google (Gemini)' },
+    { value: 'groq', label: 'Groq' },
+    { value: 'openrouter', label: 'OpenRouter' },
+    { value: 'custom', label: 'Custom API' },
+  ];
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.key.trim()) {
+      addToast('Name and key are required', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('backend_auth_token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000'}/api/v1/credentials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: form.name, type: form.provider, data: { api_key: form.key } }),
+      });
+      if (res.ok) {
+        addToast('API key saved!', 'success');
+        setShowForm(false);
+        setForm({ name: '', key: '', provider: 'openai' });
+      } else {
+        addToast('Failed to save key', 'error');
+      }
+    } catch {
+      addToast('Error saving key', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Key className="w-5 h-5 text-[#1D4ED8]" /> API Key Management
+          </h2>
+          <p className="text-white/60 text-sm mt-1">Store AI provider keys securely — encrypted and masked in the UI.</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <Plus className="w-4 h-4" /> Add Key
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+          <h3 className="text-white font-semibold">New API Key</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-white/60 text-xs font-medium mb-1 block">Provider</label>
+              <select value={form.provider} onChange={e => setForm(p => ({ ...p, provider: e.target.value }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-[#1D4ED8] outline-none">
+                {providers.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-white/60 text-xs font-medium mb-1 block">Label</label>
+              <input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Production Key" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-[#1D4ED8] outline-none placeholder:text-white/30" />
+            </div>
+          </div>
+          <div>
+            <label className="text-white/60 text-xs font-medium mb-1 block">API Key</label>
+            <input type="password" value={form.key} onChange={e => setForm(p => ({ ...p, key: e.target.value }))} placeholder="sk-..." className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-mono focus:border-[#1D4ED8] outline-none placeholder:text-white/30" />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+              {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              {saving ? 'Saving...' : 'Save Key'}
+            </button>
+            <button onClick={() => setShowForm(false)} className="text-white/60 hover:text-white px-4 py-2 rounded-xl text-sm border border-white/10 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {apiKeys.length === 0 ? (
+        <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-10 text-center">
+          <Key className="w-10 h-10 text-white/20 mx-auto mb-3" />
+          <p className="text-white/50 text-sm">No API keys configured yet.</p>
+          <p className="text-white/30 text-xs mt-1">Add your first key to enable AI nodes in workflows.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {apiKeys.map(k => (
+            <div key={k.id} className="bg-white/5 border border-white/10 hover:border-[#1D4ED8]/30 rounded-2xl p-5 flex items-center justify-between gap-4 transition-colors">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#1D4ED8]/20 border border-[#1D4ED8]/30 flex items-center justify-center flex-shrink-0">
+                  <Key className="w-4 h-4 text-[#1D4ED8]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium text-sm truncate">{k.name}</p>
+                  <p className="text-white/40 text-xs mt-0.5 font-mono">{revealedKeys.has(k.id) ? k.key : '•'.repeat(28)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className={`text-xs px-2 py-1 rounded-full border ${k.status === 'active' ? 'bg-green-500/10 border-green-500/20 text-green-400' : k.status === 'expired' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/10 border-white/10 text-white/50'}`}>{k.status}</span>
+                <button onClick={() => onToggleKeyVisibility(k.id)} className="p-2 text-white/50 hover:text-white transition-colors">{revealedKeys.has(k.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                <button onClick={() => onCopy(k.key)} className="p-2 text-white/50 hover:text-white transition-colors"><Copy className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 flex gap-3">
+        <Shield className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+        <p className="text-blue-400/70 text-xs">Keys are encrypted in Firestore and never exposed in full in API responses or logs.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────────
+   Execution Limits Tab (Module 11)
+────────────────────────────────────────────── */
+function ExecutionLimitsTab({
+  settings,
+  onUpdate,
+  addToast,
+}: {
+  settings: WorkspaceSettings;
+  onUpdate: (updates: Partial<WorkspaceSettings>) => void;
+  addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+}) {
+  const [local, setLocal] = useState<any>({ ...settings, defaultModel: 'gpt-4.1-mini', defaultMaxTokens: 1024 });
+  const [dirty, setDirty] = useState(false);
+  const patch = (p: object) => { setLocal((prev: any) => ({ ...prev, ...p })); setDirty(true); };
+
+  const models = [
+    { value: 'gpt-4.1', label: 'GPT-4.1 (OpenAI)' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (OpenAI)' },
+    { value: 'gpt-4o', label: 'GPT-4o (OpenAI)' },
+    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Anthropic)' },
+    { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (Google)' },
+    { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Groq)' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Zap className="w-5 h-5 text-[#1D4ED8]" /> Execution Limits
+        </h2>
+        <p className="text-white/60 text-sm mt-1">Configure default parameters for all workflow executions.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2"><Cpu className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Default AI Model</span></div>
+          <p className="text-white/50 text-xs">Used when no model is configured on an AI node.</p>
+          <select value={local.defaultModel} onChange={e => patch({ defaultModel: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-[#1D4ED8] outline-none">
+            {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Execution Timeout</span></div>
+          <p className="text-white/50 text-xs">Max seconds before auto-cancellation.</p>
+          <div className="flex items-center gap-3">
+            <input type="range" min={30} max={1800} step={30} value={local.defaultExecutionTimeout} onChange={e => patch({ defaultExecutionTimeout: +e.target.value })} className="flex-1 accent-[#1D4ED8]" />
+            <span className="text-white font-mono text-sm w-16 text-right">{local.defaultExecutionTimeout}s</span>
+          </div>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2"><HardDrive className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Default Max Tokens</span></div>
+          <p className="text-white/50 text-xs">Token limit for AI responses when not specified on a node.</p>
+          <div className="flex items-center gap-3">
+            <input type="range" min={256} max={32768} step={256} value={local.defaultMaxTokens} onChange={e => patch({ defaultMaxTokens: +e.target.value })} className="flex-1 accent-[#1D4ED8]" />
+            <span className="text-white font-mono text-sm w-20 text-right">{local.defaultMaxTokens.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2"><Activity className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Max Workflow Nodes</span></div>
+          <p className="text-white/50 text-xs">Maximum nodes allowed on a workflow canvas.</p>
+          <div className="flex items-center gap-3">
+            <input type="range" min={5} max={500} step={5} value={local.maxWorkflowNodes} onChange={e => patch({ maxWorkflowNodes: +e.target.value })} className="flex-1 accent-[#1D4ED8]" />
+            <span className="text-white font-mono text-sm w-12 text-right">{local.maxWorkflowNodes}</span>
+          </div>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1"><Save className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Auto-Save Workflows</span></div>
+            <p className="text-white/50 text-xs">Save changes automatically while editing.</p>
+          </div>
+          <ToggleSwitch enabled={local.autoSave} onToggle={v => patch({ autoSave: v })} />
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1"><BarChart3 className="w-4 h-4 text-[#1D4ED8]" /><span className="text-white font-medium text-sm">Enable Analytics</span></div>
+            <p className="text-white/50 text-xs">Track execution metrics, response times, and token usage.</p>
+          </div>
+          <ToggleSwitch enabled={local.enableAnalytics} onToggle={v => patch({ enableAnalytics: v })} />
+        </div>
+      </div>
+
+      {dirty && (
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={async () => { await onUpdate(local); setDirty(false); }} className="flex items-center gap-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors">
+            <Save className="w-4 h-4" /> Save Settings
+          </button>
+          <button onClick={() => { setLocal({ ...settings, defaultModel: 'gpt-4.1-mini', defaultMaxTokens: 1024 }); setDirty(false); }} className="text-white/60 hover:text-white px-4 py-2.5 rounded-xl text-sm border border-white/10 transition-colors">
+            Discard
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

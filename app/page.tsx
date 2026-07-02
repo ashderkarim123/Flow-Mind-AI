@@ -15,7 +15,7 @@ export default function HomePage() {
       <Testimonials /> */}
       <Marketplace/>
       <Selling/>
-      <Pricing/>
+      {/* <Pricing/> */}{/* Pricing hidden — will be added later */}
       <FAQ/>
       <CTA/>
       <Footer />

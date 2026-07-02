@@ -41,11 +41,13 @@ class ClaudeAI(BaseNode):
                 display_name="Model",
                 type=ParameterType.OPTIONS,
                 required=False,
-                default="claude-haiku-4-5-20251001",
+                default="claude-sonnet-4-5",
                 options=[
-                    SelectOption(value="claude-opus-4-6", label="Claude Opus 4.6"),
-                    SelectOption(value="claude-sonnet-4-6", label="Claude Sonnet 4.6"),
-                    SelectOption(value="claude-haiku-4-5-20251001", label="Claude Haiku 4.5"),
+                    SelectOption(value="claude-opus-4-5", label="Claude Opus 4.5 (most capable)"),
+                    SelectOption(value="claude-sonnet-4-5", label="Claude Sonnet 4.5 (recommended)"),
+                    SelectOption(value="claude-haiku-4-5", label="Claude Haiku 4.5 (fastest)"),
+                    SelectOption(value="claude-3-7-sonnet-20250219", label="Claude 3.7 Sonnet"),
+                    SelectOption(value="claude-3-5-sonnet-20241022", label="Claude 3.5 Sonnet"),
                 ],
             ),
             NodeParameter(

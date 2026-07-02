@@ -93,19 +93,22 @@ VARIABLE_PATTERN = re.compile(r"\{\{([^}]+)\}\}")
 
 
 def _validate_variable_syntax(text: str) -> list[str]:
-    """Returns list of syntax error messages found in a template string."""
+    """Returns list of syntax error messages found in a template string.
+
+    Accepts both formats:
+    - Strict: {{ $trigger.field }}, {{ $node.id.field }}, {{ $vars.name }}
+    - Legacy UI: {{ identifier }}, {{ node_id.output }}, {{ node_id.field }}
+    """
     errors = []
+    # Regex for a valid simple identifier (letters, digits, underscore, hyphen)
+    _IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_\-]*$')
     for match in VARIABLE_PATTERN.finditer(text):
         expr = match.group(1).strip()
-        if not (
-            expr.startswith("$trigger.")
-            or expr.startswith("$node.")
-            or expr.startswith("$vars.")
-        ):
-            errors.append(
-                f"Invalid variable '{{{{ {expr} }}}}': "
-                f"must start with $trigger, $node, or $vars"
-            )
+
+        # Accept strict $-prefixed variables
+        if expr.startswith("$trigger.") or expr.startswith("$vars."):
+            continue
+
         if expr.startswith("$node."):
             parts = expr[6:].split(".")
             if len(parts) < 2:
@@ -113,6 +116,17 @@ def _validate_variable_syntax(text: str) -> list[str]:
                     f"Invalid $node variable '{{{{ {expr} }}}}': "
                     f"must include node ID and field, e.g. {{{{$node.my_node.fieldName}}}}"
                 )
+            continue
+
+        # Accept legacy UI format: {{ identifier }} or {{ identifier.field }}
+        parts = expr.split(".")
+        if all(_IDENT.match(p) for p in parts if p):
+            continue
+
+        errors.append(
+            f"Invalid variable '{{{{ {expr} }}}}': "
+            f"must start with $trigger, $node, or $vars (or use a simple identifier like '{{{{ input }}}}' or '{{{{ node_id.output }}}}')"
+        )
     return errors
 
 

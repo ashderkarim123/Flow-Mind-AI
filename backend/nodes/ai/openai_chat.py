@@ -50,12 +50,15 @@ class OpenAI(BaseNode):
                 display_name="Model",
                 type=ParameterType.OPTIONS,
                 required=False,
-                default="gpt-4o-mini",
+                default="gpt-4.1-mini",
                 options=[
+                    SelectOption(value="gpt-4.1", label="GPT-4.1 (latest)"),
+                    SelectOption(value="gpt-4.1-mini", label="GPT-4.1 Mini (recommended)"),
+                    SelectOption(value="gpt-4.1-nano", label="GPT-4.1 Nano (fastest)"),
                     SelectOption(value="gpt-4o", label="GPT-4o"),
                     SelectOption(value="gpt-4o-mini", label="GPT-4o Mini"),
-                    SelectOption(value="gpt-4-turbo", label="GPT-4 Turbo"),
-                    SelectOption(value="gpt-3.5-turbo", label="GPT-3.5 Turbo"),
+                    SelectOption(value="o4-mini", label="o4-mini (reasoning)"),
+                    SelectOption(value="o3", label="o3 (advanced reasoning)"),
                 ],
             ),
             NodeParameter(
@@ -118,7 +121,7 @@ class OpenAI(BaseNode):
 
         prompt = str(config["prompt"])
         system_prompt = config.get("system_prompt", "You are a helpful assistant with access to databases.")
-        model = config.get("model", "gpt-4o-mini")
+        model = config.get("model", "gpt-4.1-mini")
         temperature = float(config.get("temperature", 0.7))
         max_tokens = int(config.get("max_tokens", 1000))
         enable_tools = config.get("enable_tools", True)

@@ -15,6 +15,7 @@ import {
   Users,
   CreditCard,
   Store,
+  Shield,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -28,6 +29,7 @@ const navItems: AdminNavItem[] = [
   { name: "Users", href: "/admin321/users", icon: Users },
   { name: "Transactions", href: "/admin321/billing", icon: CreditCard },
   { name: "Marketplace", href: "/admin321/marketplace", icon: Store },
+  { name: "Audit Logs", href: "/admin321/audit", icon: Shield },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

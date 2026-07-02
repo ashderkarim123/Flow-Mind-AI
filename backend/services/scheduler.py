@@ -5,7 +5,7 @@ Manages scheduled workflow executions using cron expressions
 import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 import uuid
@@ -39,7 +39,7 @@ class ScheduledJob:
     next_run: Optional[datetime] = None
     last_run: Optional[datetime] = None
     run_count: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     executor_func: Optional[Callable] = None
     last_execution_result: Optional[Dict[str, Any]] = None  # Store last execution result
     _execution_lock: asyncio.Lock = field(default_factory=asyncio.Lock)  # Lock to prevent concurrent executions
@@ -104,26 +104,21 @@ class WorkflowScheduler:
     
     async def stop_scheduler(self, job_id: str):
         """Stop the scheduler task for a specific job"""
-        logger.info(f"Attempting to stop scheduler for job {job_id}")
         async with self._lock:
             job = self.jobs.get(job_id)
             if job:
-                logger.info(f"Setting job {job_id} status to STOPPED")
                 job.status = SchedulerStatus.STOPPED
             else:
                 logger.warning(f"Job {job_id} not found in jobs dict when trying to stop")
-            
+
             task = self.running_tasks.pop(job_id, None)
             if task:
-                logger.info(f"Cancelling task for job {job_id}")
                 task.cancel()
                 try:
                     await task
                 except asyncio.CancelledError:
                     pass
                 logger.info(f"Stopped scheduler for job {job_id}")
-            else:
-                logger.info(f"No running task found for job {job_id}")
     
     async def _scheduler_loop(self, job_id: str):
         """Main scheduler loop for a job"""
@@ -132,13 +127,13 @@ class WorkflowScheduler:
             logger.error(f"Job {job_id} not found in scheduler loop")
             return
         
-        logger.info(f"Starting scheduler loop for job {job_id} with workflow {job.workflow_id}")
+        logger.debug(f"Starting scheduler loop for job {job_id} with workflow {job.workflow_id}")
         
         # Get timezone for this job
         try:
             import pytz
             tz = pytz.timezone(job.timezone)
-            logger.info(f"Using timezone {job.timezone} for job {job_id}")
+            logger.debug(f"Using timezone {job.timezone} for job {job_id}")
         except Exception as e:
             import pytz
             tz = pytz.UTC
@@ -170,7 +165,7 @@ class WorkflowScheduler:
                     now = _make_tz_aware(datetime.now(tz), tz)
                     if job.next_run is None:
                         job.next_run = _next_cron_run(job.cron, now, tz)
-                        logger.info(f"Job {job_id} first next_run: {job.next_run}")
+                        logger.debug(f"Job {job_id} first next_run: {job.next_run}")
 
                     # Ensure stored next_run is tz-aware (defensive)
                     job.next_run = _make_tz_aware(job.next_run, tz)
@@ -179,7 +174,7 @@ class WorkflowScheduler:
                     now = _make_tz_aware(datetime.now(tz), tz)
                     if job.next_run > now:
                         wait_seconds = (job.next_run - now).total_seconds()
-                        logger.info(f"Job {job_id} sleeping {wait_seconds:.1f}s until {job.next_run}")
+                        logger.debug(f"Job {job_id} sleeping {wait_seconds:.1f}s until {job.next_run}")
                         await asyncio.sleep(wait_seconds)
                     else:
                         logger.warning(f"Job {job_id} next_run {job.next_run} is in the past; recalculating")

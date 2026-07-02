@@ -146,7 +146,7 @@ const logCredentialAudit = async (
       },
       ipAddress,
       userAgent,
-      severity: 'info',
+      severity: 'info' as const,
       success: true
     };
     
