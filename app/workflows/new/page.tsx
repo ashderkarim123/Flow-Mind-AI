@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import WorkflowEditor from '@/components/workflows/WorkflowEditor';
 import { Button } from '@/components/ui/button';
@@ -35,5 +36,16 @@ export default function NewWorkflowPage() {
     );
   }
 
-  return <WorkflowEditor />;
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin mx-auto" />
+          <p className="text-white/40 text-sm font-inter">Loading workflow editor...</p>
+        </div>
+      </div>
+    }>
+      <WorkflowEditor />
+    </Suspense>
+  );
 }

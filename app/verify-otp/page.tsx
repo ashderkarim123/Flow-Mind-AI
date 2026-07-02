@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import apiClient from '@/lib/api/client';
 
-export default function VerifyOTPPage() {
+function VerifyOTPContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
@@ -440,6 +440,21 @@ export default function VerifyOTPPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOTPPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen flex items-center justify-center bg-black">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-[#1D4ED8]/30 border-t-[#1D4ED8] rounded-full animate-spin mx-auto" />
+          <p className="text-white/40 text-sm font-inter">Loading verification...</p>
+        </div>
+      </div>
+    }>
+      <VerifyOTPContent />
+    </Suspense>
   );
 }
 
