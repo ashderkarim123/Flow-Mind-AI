@@ -133,6 +133,10 @@ def get_firebase_credentials():
     # Fall back to individual settings fields
     private_key = settings.FIREBASE_PRIVATE_KEY or ""
     if private_key:
+        private_key = private_key.strip()
+        # Strip surrounding quotes some dashboards (e.g. Render) preserve literally
+        if len(private_key) >= 2 and private_key[0] == private_key[-1] and private_key[0] in ('"', "'"):
+            private_key = private_key[1:-1]
         private_key = private_key.replace('\\n', '\n')
 
     return {

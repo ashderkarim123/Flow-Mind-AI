@@ -71,7 +71,7 @@ app.add_middleware(
 # Add trusted host middleware for security
 app.add_middleware(
     TrustedHostMiddleware, 
-    allowed_hosts=["localhost", "127.0.0.1", "*.flowmindai.com", "*.railway.app", "*.up.railway.app"]
+    allowed_hosts=["localhost", "127.0.0.1", "*.flowmindai.com", "*.railway.app", "*.up.railway.app", "*.onrender.com"]
 )
 
 
