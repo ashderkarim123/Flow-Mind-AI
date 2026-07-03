@@ -4,7 +4,7 @@ const apiKey = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 // Using a capable, fast model available on OpenRouter
 const ASSISTANT_MODEL = "google/gemini-2.5-flash";
-const BACKEND_API = "http://localhost:8000";
+const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:8000";
 
 // Cache the node catalog for 5 minutes so we don't hit the backend on every message
 let _nodeCatalogCache: { data: any; ts: number } = { data: null, ts: 0 };
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
         "X-Title": "FlowMind AI Workflow Assistant",
       },
       body: JSON.stringify({
