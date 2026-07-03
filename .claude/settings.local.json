@@ -4,7 +4,16 @@
       "Bash(node -e \":*)",
       "Bash(grep -i \"\\\\.env$\\\\|\\\\.env\\\\.\")",
       "Bash(gh api *)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(node \"C:/Users/ASHDER~1/AppData/Local/Temp/claude/d--FYP-I-Flowmind-AI-Flowmind-AI-Flowmind-AI-Final/0db0316b-e860-4011-8475-62f53f24ba40/scratchpad/screenshot_marketplace.js\")",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(git checkout *)",
+      "Bash(npx eslint *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

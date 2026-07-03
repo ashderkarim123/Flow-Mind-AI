@@ -14,7 +14,6 @@ const navItems = [
   { name: "Features", id: "features" },
   { name: "Visual Builder", id: "workflow" },
   { name: "AI Models", id: "marketplace" },
-  { name: "Pricing", id: "pricing" },
   { name: "Contact", id: "contact" },
 ];
 

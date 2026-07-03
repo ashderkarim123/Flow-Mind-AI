@@ -6,7 +6,7 @@ import { Github, Twitter, Linkedin, Mail, Facebook, Instagram } from "lucide-rea
 const social = [
   { icon: Github, href: "#", label: "GitHub" },
   { icon: Linkedin, href: "#", label: "LinkedIn" },
-  { icon: Mail, href: "mailto:hello@flowmind.ai", label: "Email" },
+  { icon: Mail, href: "mailto:ashderkarim123@gmail.com", label: "Email" },
   { icon: Facebook, href: "#", label: "Facebook" },
   { icon: Instagram, href: "#", label: "Instagram" },
   { icon: Twitter, href: "#", label: "Twitter" },
@@ -68,11 +68,10 @@ const Footer = () => {
           <div>
             <h4 className="text-[#1D4ED8] text-xl font-medium mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>Connect With Us</h4>
             <ul className="space-y-3 text-white/70 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              <li>AU, Islamabad, PK</li>
-              <li>+92 336 9539289</li>
+              <li>SZABIST Islamabad</li>
               <li>
-                <a href="mailto:hello@flowmind.ai" className="hover:text-white transition-colors">
-                  hello@flowmind.ai
+                <a href="mailto:ashderkarim123@gmail.com" className="hover:text-white transition-colors">
+                  ashderkarim123@gmail.com
                 </a>
               </li>
             </ul>
