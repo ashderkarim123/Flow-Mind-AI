@@ -3,6 +3,9 @@ from pydantic import model_validator
 from typing import List, Union
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_cors_origins(v: Union[str, List[str], None]) -> List[str]:
@@ -125,12 +128,15 @@ def get_firebase_credentials():
             creds = json.loads(env_creds)
             if isinstance(creds, dict) and "private_key" in creds:
                 creds["private_key"] = creds["private_key"].replace('\\n', '\n')
+                logger.info("Firebase credentials loaded from FIREBASE_CREDENTIALS env var")
                 return creds
-        except Exception:
+            logger.warning("FIREBASE_CREDENTIALS parsed but missing 'private_key' field; falling back")
+        except Exception as exc:
             # Fall back to individual settings if JSON parsing fails
-            pass
+            logger.warning(f"FIREBASE_CREDENTIALS failed to parse as JSON, falling back to individual fields: {exc}")
 
     # Fall back to individual settings fields
+    logger.info("Firebase credentials loaded from individual FIREBASE_* env vars")
     private_key = settings.FIREBASE_PRIVATE_KEY or ""
     if private_key:
         private_key = private_key.strip()
@@ -138,6 +144,8 @@ def get_firebase_credentials():
         if len(private_key) >= 2 and private_key[0] == private_key[-1] and private_key[0] in ('"', "'"):
             private_key = private_key[1:-1]
         private_key = private_key.replace('\\n', '\n')
+        if not private_key.startswith('-----BEGIN'):
+            logger.warning(f"FIREBASE_PRIVATE_KEY does not start with '-----BEGIN' after normalization (starts with: {private_key[:20]!r})")
 
     return {
         "type": "service_account",
