@@ -63,6 +63,10 @@ for port in ["http://localhost:3000", "http://localhost:3001", "http://localhost
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    # Every Vercel deployment (preview or production) gets its own unique
+    # *.vercel.app alias, so also allow any of this project's Vercel URLs
+    # by pattern rather than requiring each one to be added manually.
+    allow_origin_regex=r"^https://flow-mind[-a-z0-9]*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

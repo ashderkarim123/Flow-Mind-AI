@@ -39,13 +39,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
   const pathname = usePathname();
-  const { user, loading, signOut, sendVerificationEmail } = useAuth();
+  const { user, loading, signOut, sendVerificationEmail, getUserToken } = useAuth();
 
   const fetchNotifications = async () => {
     if (!user) return;
     setNotifLoading(true);
     try {
-      const token = localStorage.getItem('backend_auth_token') || await (user as any).getIdToken();
+      const token = localStorage.getItem('backend_auth_token') || await getUserToken();
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
       const res = await fetch(`${backendUrl}/api/v1/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const markAllRead = async () => {
     if (!user) return;
     try {
-      const token = localStorage.getItem('backend_auth_token') || await (user as any).getIdToken();
+      const token = localStorage.getItem('backend_auth_token') || await getUserToken();
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
       const res = await fetch(`${backendUrl}/api/v1/notifications/mark-all-read`, {
         method: 'POST',
