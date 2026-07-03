@@ -2,9 +2,6 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../../../n8n/Go HIgh Level/attachments/uplift-ai-portfolio/touseef-portfolio"
 		}
 	],
 	"settings": {}
