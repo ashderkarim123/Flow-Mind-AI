@@ -3,6 +3,7 @@ from pydantic import model_validator
 from typing import List, Union
 import os
 import json
+import re
 import logging
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,21 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
+def _repair_unescaped_private_key_newlines(raw: str) -> str:
+    """Some dashboards convert the JSON-escaped \\n inside private_key back into
+    real line breaks when a value is viewed/saved, which makes the JSON invalid
+    (raw newlines aren't allowed inside a JSON string). Re-escape them so it parses."""
+    match = re.search(r'("private_key"\s*:\s*")(.*?)("\s*,\s*"\w|"\s*})', raw, re.DOTALL)
+    if not match:
+        return raw
+    value = match.group(2)
+    if '\n' not in value:
+        return raw
+    repaired_value = value.replace('\r\n', '\n').replace('\n', '\\n')
+    start, end = match.span(2)
+    return raw[:start] + repaired_value + raw[end:]
+
+
 def get_firebase_credentials():
     """Get Firebase credentials as a dictionary for Firebase Admin SDK"""
     # Check if a single FIREBASE_CREDENTIALS JSON string is provided in the env
@@ -126,14 +142,20 @@ def get_firebase_credentials():
     if env_creds:
         try:
             creds = json.loads(env_creds)
-            if isinstance(creds, dict) and "private_key" in creds:
-                creds["private_key"] = creds["private_key"].replace('\\n', '\n')
-                logger.info("Firebase credentials loaded from FIREBASE_CREDENTIALS env var")
-                return creds
-            logger.warning("FIREBASE_CREDENTIALS parsed but missing 'private_key' field; falling back")
         except Exception as exc:
-            # Fall back to individual settings if JSON parsing fails
-            logger.warning(f"FIREBASE_CREDENTIALS failed to parse as JSON, falling back to individual fields: {exc}")
+            try:
+                creds = json.loads(_repair_unescaped_private_key_newlines(env_creds))
+                logger.warning("FIREBASE_CREDENTIALS had raw newlines inside private_key; auto-repaired for parsing")
+            except Exception as exc2:
+                creds = None
+                logger.error(f"FIREBASE_CREDENTIALS failed to parse as JSON even after repair attempt: {exc2} (original error: {exc})")
+
+        if isinstance(creds, dict) and "private_key" in creds:
+            creds["private_key"] = creds["private_key"].replace('\\n', '\n')
+            logger.info("Firebase credentials loaded from FIREBASE_CREDENTIALS env var")
+            return creds
+        if creds is not None:
+            logger.warning("FIREBASE_CREDENTIALS parsed but missing 'private_key' field; falling back")
 
     # Fall back to individual settings fields
     logger.info("Firebase credentials loaded from individual FIREBASE_* env vars")
