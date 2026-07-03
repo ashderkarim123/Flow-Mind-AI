@@ -1,18 +1,6 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
-  Timestamp 
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { 
+import { Timestamp } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
+import {
   Credential, 
   CreateCredential, 
   CredentialSchema,
@@ -184,7 +172,7 @@ export const credentialService = {
       };
       
       // Add to Firestore
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), firestoreData);
+      const docRef = await adminDb.collection(COLLECTION_NAME).add(firestoreData);
       
       // Return the created credential with decrypted data for immediate use
       const decryptedCredential = decryptCredentialData(validatedCredential);
@@ -215,18 +203,18 @@ export const credentialService = {
   // Get credential by ID
   async getById(userId: string, credentialId: string): Promise<ServiceResponse<Credential>> {
     try {
-      const docRef = doc(db, COLLECTION_NAME, credentialId);
-      const docSnap = await getDoc(docRef);
-      
-      if (!docSnap.exists()) {
+      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
         return {
           success: false,
           error: 'Credential not found',
         };
       }
       
-      const data = docSnap.data();
-      
+      const data = docSnap.data()!;
+
       // Check if user owns this credential
       if (data.userId !== userId) {
         return {
@@ -257,25 +245,23 @@ export const credentialService = {
   // Get all credentials for a user
   async getByUserId(userId: string, platform?: string): Promise<ServiceResponse<Credential[]>> {
     try {
-      let q = query(
-        collection(db, COLLECTION_NAME),
-        where('userId', '==', userId),
-        where('isActive', '==', true),
-        orderBy('updatedAt', 'desc')
-      );
-      
+      let q = adminDb
+        .collection(COLLECTION_NAME)
+        .where('userId', '==', userId)
+        .where('isActive', '==', true)
+        .orderBy('updatedAt', 'desc');
+
       // Filter by platform if specified
       if (platform) {
-        q = query(
-          collection(db, COLLECTION_NAME),
-          where('userId', '==', userId),
-          where('platform', '==', platform),
-          where('isActive', '==', true),
-          orderBy('updatedAt', 'desc')
-        );
+        q = adminDb
+          .collection(COLLECTION_NAME)
+          .where('userId', '==', userId)
+          .where('platform', '==', platform)
+          .where('isActive', '==', true)
+          .orderBy('updatedAt', 'desc');
       }
-      
-      const querySnapshot = await getDocs(q);
+
+      const querySnapshot = await q.get();
       const credentials: Credential[] = [];
       
       querySnapshot.forEach((doc) => {
@@ -315,8 +301,8 @@ export const credentialService = {
         updatedAt: Timestamp.fromDate(new Date()),
       };
       
-      const docRef = doc(db, COLLECTION_NAME, credentialId);
-      await updateDoc(docRef, updateData);
+      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      await docRef.update(updateData);
       
       // Log audit event
       if (existing.success && existing.data) {
@@ -352,8 +338,8 @@ export const credentialService = {
         };
       }
       
-      const docRef = doc(db, COLLECTION_NAME, credentialId);
-      await updateDoc(docRef, {
+      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      await docRef.update({
         isActive: false,
         updatedAt: Timestamp.fromDate(new Date()),
       });
@@ -394,8 +380,8 @@ export const credentialService = {
         };
       }
       
-      const docRef = doc(db, COLLECTION_NAME, credentialId);
-      await updateDoc(docRef, {
+      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      await docRef.update({
         lastUsed: Timestamp.fromDate(new Date()),
         updatedAt: Timestamp.fromDate(new Date()),
       });

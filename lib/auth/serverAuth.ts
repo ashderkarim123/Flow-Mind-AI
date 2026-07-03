@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 export interface ServerAuthUser {
   uid: string;
@@ -9,38 +10,36 @@ export interface ServerAuthUser {
 }
 
 /**
- * Get authenticated user from Authorization header
- * For now, this is a simplified version that trusts the token
- * In production, you should verify tokens using Firebase Admin SDK
+ * Get authenticated user from Authorization header.
+ * Verifies the Firebase ID token via the Admin SDK (signature + expiry checked
+ * against Google's public keys) rather than trusting the decoded payload.
  */
 export async function getServerAuthUser(request: NextRequest): Promise<ServerAuthUser | null> {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return null;
     }
 
     const token = authHeader.substring(7); // Remove "Bearer " prefix
-    
+
     if (!token) {
       return null;
     }
 
-    // TODO: Implement proper Firebase Admin SDK token verification
-    // For now, decode the token client-side (NOT SECURE for production)
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      
+      const decoded = await adminAuth.verifyIdToken(token);
+
       return {
-        uid: payload.user_id || payload.sub,
-        email: payload.email || null,
-        displayName: payload.name || null,
-        photoURL: payload.picture || null,
-        emailVerified: payload.email_verified || false,
+        uid: decoded.uid,
+        email: decoded.email ?? null,
+        displayName: decoded.name ?? null,
+        photoURL: decoded.picture ?? null,
+        emailVerified: decoded.email_verified ?? false,
       };
     } catch (tokenError) {
-      console.error('Error parsing token:', tokenError);
+      console.error('Error verifying token:', tokenError);
       return null;
     }
   } catch (error) {

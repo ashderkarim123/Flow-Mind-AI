@@ -26,7 +26,7 @@ const marketplaceItems = [
     category: "AI Model",
     rating: "4.9",
     integrations: "Integrated",
-    image: "/assets/marketPlace/Sheets.svg"
+    image: "/assets/marketPlace/Claude.svg"
   },
   {
     id: 3,
@@ -37,7 +37,7 @@ const marketplaceItems = [
     category: "AI Model",
     rating: "4.8",
     integrations: "Integrated",
-    image: "/assets/marketPlace/Slack.svg"
+    image: "/assets/marketPlace/Gemini.svg"
   }
 ];
 
