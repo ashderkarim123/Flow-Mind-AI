@@ -57,6 +57,10 @@ nexagent-*-firebase-adminsdk-*.json
 n8n-nexagent-*.json
 render_firebase_credentials.txt
 
+# Runtime workflow checkpoint dumps (regenerated locally, archived outside repo)
+/checkpoints/
+/backend/checkpoints/
+
 # Firebase client config
 lib/firebase-config.ts
 
