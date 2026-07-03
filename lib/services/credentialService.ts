@@ -172,7 +172,7 @@ export const credentialService = {
       };
       
       // Add to Firestore
-      const docRef = await adminDb.collection(COLLECTION_NAME).add(firestoreData);
+      const docRef = await adminDb().collection(COLLECTION_NAME).add(firestoreData);
       
       // Return the created credential with decrypted data for immediate use
       const decryptedCredential = decryptCredentialData(validatedCredential);
@@ -203,7 +203,7 @@ export const credentialService = {
   // Get credential by ID
   async getById(userId: string, credentialId: string): Promise<ServiceResponse<Credential>> {
     try {
-      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      const docRef = adminDb().collection(COLLECTION_NAME).doc(credentialId);
       const docSnap = await docRef.get();
 
       if (!docSnap.exists) {
@@ -245,7 +245,7 @@ export const credentialService = {
   // Get all credentials for a user
   async getByUserId(userId: string, platform?: string): Promise<ServiceResponse<Credential[]>> {
     try {
-      let q = adminDb
+      let q = adminDb()
         .collection(COLLECTION_NAME)
         .where('userId', '==', userId)
         .where('isActive', '==', true)
@@ -253,7 +253,7 @@ export const credentialService = {
 
       // Filter by platform if specified
       if (platform) {
-        q = adminDb
+        q = adminDb()
           .collection(COLLECTION_NAME)
           .where('userId', '==', userId)
           .where('platform', '==', platform)
@@ -301,7 +301,7 @@ export const credentialService = {
         updatedAt: Timestamp.fromDate(new Date()),
       };
       
-      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      const docRef = adminDb().collection(COLLECTION_NAME).doc(credentialId);
       await docRef.update(updateData);
       
       // Log audit event
@@ -338,7 +338,7 @@ export const credentialService = {
         };
       }
       
-      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      const docRef = adminDb().collection(COLLECTION_NAME).doc(credentialId);
       await docRef.update({
         isActive: false,
         updatedAt: Timestamp.fromDate(new Date()),
@@ -380,7 +380,7 @@ export const credentialService = {
         };
       }
       
-      const docRef = adminDb.collection(COLLECTION_NAME).doc(credentialId);
+      const docRef = adminDb().collection(COLLECTION_NAME).doc(credentialId);
       await docRef.update({
         lastUsed: Timestamp.fromDate(new Date()),
         updatedAt: Timestamp.fromDate(new Date()),

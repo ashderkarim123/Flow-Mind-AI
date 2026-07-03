@@ -1,7 +1,10 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
+// Lazily initialized so importing this module (e.g. during Next.js's
+// build-time page-data collection) never requires the service-account
+// env vars to be present — only actually calling adminAuth()/adminDb() does.
 function getAdminApp(): App {
   const existing = getApps();
   if (existing.length) return existing[0];
@@ -15,7 +18,15 @@ function getAdminApp(): App {
   });
 }
 
-const adminApp = getAdminApp();
+let _auth: Auth | undefined;
+let _db: Firestore | undefined;
 
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
+export function adminAuth(): Auth {
+  if (!_auth) _auth = getAuth(getAdminApp());
+  return _auth;
+}
+
+export function adminDb(): Firestore {
+  if (!_db) _db = getFirestore(getAdminApp());
+  return _db;
+}

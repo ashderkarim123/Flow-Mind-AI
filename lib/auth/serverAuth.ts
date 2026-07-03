@@ -29,7 +29,7 @@ export async function getServerAuthUser(request: NextRequest): Promise<ServerAut
     }
 
     try {
-      const decoded = await adminAuth.verifyIdToken(token);
+      const decoded = await adminAuth().verifyIdToken(token);
 
       return {
         uid: decoded.uid,
