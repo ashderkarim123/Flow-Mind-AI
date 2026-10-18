@@ -14,6 +14,17 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { MFAVerify } from '@/components/mfa/MFAVerify';
+import apiClient from '@/lib/api/client';
+
+/** Admins land on the admin panel; the role comes from the backend, not the email. */
+async function homeForUser(): Promise<string> {
+  try {
+    const { data } = await apiClient.get('/api/v1/admin/whoami');
+    return data?.isAdmin ? '/admin321' : '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
 
 /* ─── Floating particle node for background ─── */
 function FloatingNode({ x, y, delay, size = 6 }: { x: number; y: number; delay: number; size?: number }) {
@@ -94,14 +105,7 @@ export default function SignInPage() {
     const hasSessionToken = typeof window !== 'undefined' && localStorage.getItem('backend_session_token');
     if (!authLoading && !backendLoading && (firebaseUser || backendAuthenticated)) {
       if (!hasSessionToken && firebaseUser) return;
-      const email = firebaseUser?.email;
-      let redirect = email === 'admin@gmail.com' ? '/admin321' : '/dashboard';
-      try {
-        const isAdmin = localStorage.getItem('user_is_admin') === 'true';
-        const adminRedirect = localStorage.getItem('admin_redirect_url');
-        if (isAdmin && adminRedirect) redirect = adminRedirect;
-      } catch { /* ignore */ }
-      router.replace(redirect);
+      homeForUser().then((path) => router.replace(path));
     }
   }, [authLoading, backendLoading, firebaseUser, backendAuthenticated, router, showMFA]);
 
@@ -120,7 +124,7 @@ export default function SignInPage() {
         return;
       }
       if (authUser && !authUser.emailVerified) setShowVerificationWarning(true);
-      router.push(email === 'admin@gmail.com' ? '/admin321' : '/dashboard');
+      router.push(await homeForUser());
     } catch (err: any) {
       const code = err?.code || '';
       if (code.includes('wrong-password') || code.includes('user-not-found') || code.includes('invalid-credential')) {
@@ -141,9 +145,7 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const result = await signInWithGoogle();
-      setTimeout(() => {
-        router.push(result?.email === 'admin@gmail.com' ? '/admin321' : '/dashboard');
-      }, 200);
+      if (result) router.push(await homeForUser());
     } catch (err: any) {
       setError(err.message);
     } finally {

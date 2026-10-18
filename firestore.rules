@@ -76,13 +76,11 @@ service cloud.firestore {
                     (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
     }
     
-    // Workflow executions collection - users can only access their own executions
+    // Workflow executions — written only by the backend (Admin SDK) so run
+    // history and analytics cannot be forged from the browser
     match /executions/{executionId} {
-      allow read, write: if isAuthenticated() && 
-                         (resource == null || resource.data.userId == request.auth.uid || resource.data.ownerId == request.auth.uid);
-      
-      allow create: if isAuthenticated() && 
-                    (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
     }
 
     match /workflowExecutions/{executionId} {
@@ -93,9 +91,10 @@ service cloud.firestore {
                     (request.resource.data.userId == request.auth.uid || request.resource.data.ownerId == request.auth.uid);
     }
     
-    // Node definitions - read-only for public, write-only for admin/development
+    // Node definitions - public catalog, managed server-side only
     match /nodeDefinitions/{nodeId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if false;
     }
     
     // Credentials collection - users can only access their own credentials

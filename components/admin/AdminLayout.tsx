@@ -16,6 +16,10 @@ import {
   CreditCard,
   Store,
   Shield,
+  Workflow,
+  LayoutTemplate,
+  BarChart3,
+  Server,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -27,6 +31,10 @@ export type AdminNavItem = {
 const navItems: AdminNavItem[] = [
   { name: "Dashboard", href: "/admin321", icon: LayoutDashboard },
   { name: "Users", href: "/admin321/users", icon: Users },
+  { name: "Workflows", href: "/admin321/workflows", icon: Workflow },
+  { name: "Templates", href: "/admin321/templates", icon: LayoutTemplate },
+  { name: "Analytics", href: "/admin321/analytics", icon: BarChart3 },
+  { name: "System", href: "/admin321/system", icon: Server },
   { name: "Transactions", href: "/admin321/billing", icon: CreditCard },
   { name: "Marketplace", href: "/admin321/marketplace", icon: Store },
   { name: "Audit Logs", href: "/admin321/audit", icon: Shield },

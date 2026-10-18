@@ -108,7 +108,7 @@ class Gemini(BaseNode):
         temperature = float(config.get("temperature") or 0.7)
         max_tokens = int(config.get("max_tokens") or 1024)
         enable_tools = config.get("enable_tools", True)
-        api_key = str(config.get("api_key") or "").strip()
+        api_key = str(config.get("api_key") or context.get_credential("gemini_api_key", "api_key", "")).strip()
 
         if not api_key:
             raise NodeExecutionError(

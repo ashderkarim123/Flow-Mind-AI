@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import apiClient from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,9 +13,10 @@ import {
 
 /* ────────── Model Definitions ────────── */
 interface AIModel {
-  id: string;
+  id: string;            // model id sent to the provider (LocalLLM: editable in settings)
   name: string;
   provider: string;
+  nodeType: 'OpenAI' | 'ClaudeAI' | 'Gemini' | 'Groq' | 'LocalLLM';  // backend node that runs it
   icon: string;
   description: string;
   color: string;
@@ -27,6 +29,7 @@ const AI_MODELS: AIModel[] = [
     id: 'gpt-4.1',
     name: 'GPT-4.1',
     provider: 'OpenAI',
+    nodeType: 'OpenAI',
     icon: '/assets/canvas/openai.svg',
     description: 'Latest flagship model — superior coding, instruction following, and long-context tasks',
     color: '#10A37F',
@@ -37,6 +40,7 @@ const AI_MODELS: AIModel[] = [
     id: 'gpt-4.1-mini',
     name: 'GPT-4.1 Mini',
     provider: 'OpenAI',
+    nodeType: 'OpenAI',
     icon: '/assets/canvas/openai.svg',
     description: 'Fast and efficient — best value for most everyday tasks',
     color: '#10A37F',
@@ -47,6 +51,7 @@ const AI_MODELS: AIModel[] = [
     id: 'claude-sonnet-4-5',
     name: 'Claude Sonnet 4.5',
     provider: 'Anthropic',
+    nodeType: 'ClaudeAI',
     icon: '/assets/canvas/claude.svg',
     description: 'Balanced intelligence and speed — excellent for enterprise workloads and coding',
     color: '#D97706',
@@ -57,6 +62,7 @@ const AI_MODELS: AIModel[] = [
     id: 'claude-opus-4-5',
     name: 'Claude Opus 4.5',
     provider: 'Anthropic',
+    nodeType: 'ClaudeAI',
     icon: '/assets/canvas/claude.svg',
     description: 'Most capable Claude model — best for complex analysis and nuanced reasoning',
     color: '#D97706',
@@ -67,6 +73,7 @@ const AI_MODELS: AIModel[] = [
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'Google',
+    nodeType: 'Gemini',
     icon: '/assets/canvas/gemini-2.svg',
     description: 'Google\'s fastest thinking model with multimodal capabilities — free tier available',
     color: '#4285F4',
@@ -77,9 +84,21 @@ const AI_MODELS: AIModel[] = [
     id: 'meta-llama/llama-4-scout-17b-16e-instruct',
     name: 'Llama 4 Scout',
     provider: 'Groq',
+    nodeType: 'Groq',
     icon: '/assets/canvas/groq-4.svg',
     description: 'Meta\'s latest open model — ultra-fast inference via Groq — free tier',
     color: '#F55036',
+    maxTokens: 8192,
+    defaultTemp: 0.7,
+  },
+  {
+    id: 'llama3.2',
+    name: 'Local LLM',
+    provider: 'Ollama (self-hosted)',
+    nodeType: 'LocalLLM',
+    icon: '/assets/canvas/groq-2.svg',
+    description: 'Open model running on your own server — no API key, data never leaves the machine',
+    color: '#9CA3AF',
     maxTokens: 8192,
     defaultTemp: 0.7,
   },
@@ -150,47 +169,47 @@ export default function AIIntegrationPage() {
     });
     setResponses({ ...newResponses });
 
-    // Simulate parallel API calls (in production, these would hit real AI APIs via your backend)
-    const promises = selectedModels.map(async (modelId) => {
-      const config = configs[modelId];
-      const model = AI_MODELS.find(m => m.id === modelId)!;
-      const startTime = Date.now();
-
-      try {
-        // Simulated response — in production, call your backend /api/v1/ai/generate
-        await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
-
-        const simulatedContent = generateSimulatedResponse(model.name, prompt, config);
-        const latency = Date.now() - startTime;
-        const tokens = Math.floor(simulatedContent.length / 4);
-
-        setResponses(prev => ({
-          ...prev,
-          [modelId]: {
-            modelId,
-            content: simulatedContent,
-            tokens,
-            latency,
-            status: 'done',
-          },
-        }));
-      } catch (err: any) {
-        setResponses(prev => ({
-          ...prev,
-          [modelId]: {
-            modelId,
-            content: '',
-            tokens: 0,
-            latency: Date.now() - startTime,
-            status: 'error',
-            error: err.message || 'Failed to generate response',
-          },
-        }));
-      }
-    });
-
-    await Promise.all(promises);
-    setIsComparing(false);
+    // One backend call runs every selected model in parallel (POST /api/v1/ai/compare)
+    const ids = [...selectedModels];
+    try {
+      const { data } = await apiClient.post(
+        '/api/v1/ai/compare',
+        {
+          prompt,
+          models: ids.map(id => {
+            const model = AI_MODELS.find(m => m.id === id)!;
+            const config = configs[id];
+            return {
+              provider: model.nodeType,
+              model: config.modelId,
+              temperature: config.temperature,
+              max_tokens: config.maxTokens,
+              system_prompt: config.systemPrompt,
+            };
+          }),
+        },
+        { timeout: 300_000 }, // local models on CPU can take minutes
+      );
+      const results: Record<string, ModelResponse> = {};
+      data.results.forEach((r: any, i: number) => {
+        results[ids[i]] = {
+          modelId: ids[i],
+          content: r.content,
+          tokens: r.tokens,
+          latency: r.latency_ms,
+          status: r.status === 'done' ? 'done' : 'error',
+          error: r.error ?? undefined,
+        };
+      });
+      setResponses(results);
+    } catch (err: any) {
+      const message = err.message || 'Failed to generate responses';
+      setResponses(Object.fromEntries(ids.map(id => [
+        id, { modelId: id, content: '', tokens: 0, latency: 0, status: 'error' as const, error: String(message) },
+      ])));
+    } finally {
+      setIsComparing(false);
+    }
   };
 
   const copyToClipboard = (text: string, modelId: string) => {
@@ -278,6 +297,20 @@ export default function AIIntegrationPage() {
                       <img src={model.icon} alt={model.name} className="w-5 h-5" />
                       <h3 className="text-sm font-semibold text-white">{model.name} Settings</h3>
                     </div>
+
+                    {model.nodeType === 'LocalLLM' && (
+                      <div className="mb-4">
+                        <label className="flex items-center gap-2 text-xs text-white/50 mb-1.5">
+                          <Cpu className="w-3.5 h-3.5" /> Model name on the server
+                        </label>
+                        <Input
+                          value={config.modelId}
+                          onChange={e => updateConfig(modelId, 'modelId', e.target.value)}
+                          placeholder="llama3.2"
+                          className="bg-white/5 border-white/10 text-white h-8 text-sm"
+                        />
+                      </div>
+                    )}
 
                     {/* Temperature */}
                     <div className="mb-4">
@@ -486,21 +519,3 @@ export default function AIIntegrationPage() {
   );
 }
 
-/* ────────── Simulated Response Generator ────────── */
-function generateSimulatedResponse(modelName: string, prompt: string, config: ModelConfig): string {
-  const topic = prompt.toLowerCase();
-  
-  const responses: Record<string, string> = {
-    'GPT-4': `Here's a comprehensive analysis based on your prompt:\n\n${prompt}\n\n**Key Points:**\n\n1. **Context Understanding**: The query relates to a complex topic that requires careful consideration of multiple factors and perspectives.\n\n2. **Analysis**: Based on current research and understanding, there are several important aspects to consider when approaching this subject.\n\n3. **Recommendations**: I would suggest starting with a foundational understanding before diving into the more nuanced details.\n\n4. **Conclusion**: This topic continues to evolve, and staying updated with the latest developments is essential for a complete understanding.\n\n*Generated by GPT-4 with temperature ${config.temperature}*`,
-    
-    'GPT-3.5 Turbo': `Based on your question about "${prompt.slice(0, 60)}...":\n\nThis is an interesting topic! Here are the main points:\n\n• First, it's important to understand the basic concepts involved.\n• Second, there are practical applications that make this relevant.\n• Third, ongoing research continues to expand our knowledge.\n\nWould you like me to elaborate on any of these points?\n\n*Generated by GPT-3.5 Turbo with temperature ${config.temperature}*`,
-    
-    'Claude 3 Sonnet': `I'd be happy to help with your question.\n\n**Understanding "${prompt.slice(0, 50)}..."**\n\nLet me break this down into clear, digestible parts:\n\n**Foundation:**\nThis subject involves several interconnected concepts that build upon each other. Understanding the fundamentals is crucial before exploring advanced aspects.\n\n**Practical Application:**\nIn real-world scenarios, this knowledge can be applied in various ways, from academic research to industry applications.\n\n**Current State:**\nThe field is actively evolving, with new discoveries and methodologies emerging regularly. Staying informed about recent developments provides a competitive advantage.\n\n**Key Takeaway:**\nThe most important thing to remember is that this is a multifaceted topic that benefits from a holistic approach to understanding.\n\n*Generated by Claude 3 Sonnet with temperature ${config.temperature}*`,
-    
-    'Gemini Pro': `## Response to: "${prompt.slice(0, 50)}..."\n\nGreat question! Let me provide a well-structured response:\n\n### Overview\nThis topic spans multiple domains and has significant implications across various fields.\n\n### Key Aspects\n1. **Theoretical Foundation** — The underlying principles are well-established and supported by extensive research.\n2. **Practical Implementation** — There are numerous real-world applications that demonstrate the value of this knowledge.\n3. **Future Directions** — Emerging trends suggest exciting developments on the horizon.\n\n### Summary\nUnderstanding this topic opens doors to innovative solutions and deeper insights. I recommend exploring both the theoretical and practical dimensions for a complete picture.\n\n*Generated by Gemini Pro with temperature ${config.temperature}*`,
-    
-    'Llama 3 70B': `Here's my take on "${prompt.slice(0, 50)}...":\n\nThis is a fascinating area that has seen tremendous growth and interest in recent years.\n\n**What You Should Know:**\n\n→ The fundamentals are straightforward but the applications are vast\n→ There are open-source resources available for deeper exploration\n→ Community-driven development has accelerated progress significantly\n→ Practical experimentation is the best way to build understanding\n\n**My Recommendation:**\nStart with hands-on experimentation. Theory is important, but practical experience will solidify your understanding much faster.\n\n*Generated by Llama 3 70B (via Groq) with temperature ${config.temperature}*`,
-  };
-
-  return responses[modelName] || `Response from ${modelName} for prompt: "${prompt.slice(0, 100)}..."`;
-}

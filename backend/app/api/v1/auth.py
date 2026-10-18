@@ -840,7 +840,8 @@ async def get_mfa_status(current_user: Dict[str, Any] = Depends(get_current_user
 
 ADMIN_EMAIL = "admin@gmail.com"
 
-_VALID_ROLES = {"admin", "user", "viewer"}
+from app.core.auth_dependency import ROLES as _ROLES
+_VALID_ROLES = set(_ROLES)  # one role list for the whole app (core.auth_dependency)
 
 
 async def _require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
@@ -868,7 +869,7 @@ async def set_user_role(
     body: _RoleBody,
     _admin: dict = Depends(_require_admin),
 ):
-    """Set a user's role (admin, user, viewer). Admin only."""
+    """Set a user's role (viewer, user, manager, admin). Admin only."""
     if body.role not in _VALID_ROLES:
         raise HTTPException(status_code=422, detail=f"Invalid role. Must be one of: {', '.join(_VALID_ROLES)}")
     try:

@@ -86,10 +86,11 @@ class WorkflowMetrics(BaseModel):
     successfulExecutions: int
     failedExecutions: int
     successRate: float
-    avgExecutionTime: float  # seconds
+    avgExecutionTime: float  # milliseconds
     minExecutionTime: float
     maxExecutionTime: float
     p95ExecutionTime: float
+    totalTokens: int = 0
     lastExecutedAt: Optional[datetime] = None
 
 
@@ -101,7 +102,7 @@ class WorkflowExecution(BaseModel):
     status: str  # success, failed, running
     startTime: datetime
     endTime: Optional[datetime] = None
-    duration: Optional[float] = None  # seconds
+    duration: Optional[float] = None  # milliseconds
     errorMessage: Optional[str] = None
     stepsCompleted: int
     totalSteps: int

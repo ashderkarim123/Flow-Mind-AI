@@ -204,25 +204,11 @@ class WorkflowScheduler:
 
                                 execution_result = await job.executor_func(workflow_data_with_flag, {})
 
-                                converted_logs = [
-                                    {
-                                        "nodeId": log.get("node_id", ""),
-                                        "nodeName": log.get("node_name", log.get("node_id", "Unknown")),
-                                        "nodeType": log.get("node_type", "unknown"),
-                                        "status": log.get("status", "unknown"),
-                                        "output": log.get("output"),
-                                        "error": log.get("error"),
-                                        "executionTimeMs": log.get("execution_time_ms", 0),
-                                        "startedAt": log.get("started_at", ""),
-                                        "completedAt": log.get("completed_at", ""),
-                                        "metadata": log.get("metadata", {}),
-                                    }
-                                    for log in execution_result.get("node_logs", [])
-                                ]
-
+                                # executor_func (run_and_record) already returns camelCase node logs
                                 job.last_execution_result = {
+                                    "execution_id": execution_result.get("execution_id"),
                                     "status": execution_result.get("status", "completed"),
-                                    "node_logs": converted_logs,
+                                    "node_logs": execution_result.get("node_logs", []),
                                     "execution_time_ms": execution_result.get("execution_time_ms", 0),
                                     "error": execution_result.get("error"),
                                     "timestamp": job.last_run.isoformat(),

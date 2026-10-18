@@ -295,6 +295,29 @@ class FirebaseService:
             logger.error(f"Failed to get user by UID: {str(e)}")
             return None
     
+    async def list_all_users(self) -> list:
+        """Every Firebase Auth user (pages through the API), in the shape users.py expects.
+
+        Timestamps use the JS-style format users.py parses ("%a, %d %b %Y %H:%M:%S GMT").
+        """
+        def fmt(ms):
+            return datetime.utcfromtimestamp(ms / 1000).strftime("%a, %d %b %Y %H:%M:%S GMT") if ms else None
+
+        users = []
+        for record in auth.list_users().iterate_all():
+            meta = record.user_metadata
+            users.append({
+                'uid': record.uid,
+                'email': record.email or '',
+                'displayName': record.display_name,
+                'emailVerified': record.email_verified,
+                'disabled': record.disabled,
+                'photoURL': record.photo_url,
+                'creationTime': fmt(meta.creation_timestamp if meta else None),
+                'lastSignInTime': fmt(meta.last_sign_in_timestamp if meta else None),
+            })
+        return users
+
     async def update_user(self, uid: str, **kwargs) -> Dict[str, Any]:
         """Update user in Firebase Auth"""
         try:

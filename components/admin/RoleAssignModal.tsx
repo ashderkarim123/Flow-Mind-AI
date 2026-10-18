@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Shield, User, Briefcase, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Shield, User, Briefcase, Eye, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 interface RoleOption {
   value: string;
@@ -15,11 +15,21 @@ interface RoleOption {
   border: string;
 }
 
+// Must match ROLE_PERMISSIONS in backend/app/core/auth_dependency.py
 const ROLES: RoleOption[] = [
+  {
+    value: 'viewer',
+    label: 'Viewer',
+    description: 'Read-only: can browse workflows, runs and analytics but not edit or run them',
+    icon: <Eye className="w-4 h-4" />,
+    color: 'text-white/50',
+    bg: 'rgba(255,255,255,0.02)',
+    border: 'rgba(255,255,255,0.08)',
+  },
   {
     value: 'user',
     label: 'User',
-    description: 'Can create and run their own workflows',
+    description: 'Can create, run and schedule their own workflows and use AI models',
     icon: <User className="w-4 h-4" />,
     color: 'text-white/70',
     bg: 'rgba(255,255,255,0.04)',
@@ -28,7 +38,7 @@ const ROLES: RoleOption[] = [
   {
     value: 'manager',
     label: 'Manager',
-    description: 'Can view and manage team workflows',
+    description: 'User rights plus platform-wide monitoring and read-only admin panel',
     icon: <Briefcase className="w-4 h-4" />,
     color: 'text-cyan-400',
     bg: 'rgba(6,182,212,0.06)',
@@ -37,7 +47,7 @@ const ROLES: RoleOption[] = [
   {
     value: 'admin',
     label: 'Administrator',
-    description: 'Full system access including user management',
+    description: 'Full access: moderation, role changes and user management',
     icon: <Shield className="w-4 h-4" />,
     color: 'text-violet-400',
     bg: 'rgba(124,58,237,0.08)',

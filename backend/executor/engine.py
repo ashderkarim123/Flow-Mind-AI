@@ -28,6 +28,8 @@ from executor import resolver as _resolver
 
 logger = logging.getLogger(__name__)
 
+RETRY_BACKOFF_SECONDS = 1.0  # waits 1s, 2s, 3s… between attempts
+
 
 # ---------------------------------------------------------------------------
 # Input / Output models
@@ -151,18 +153,22 @@ class WorkflowEngine:
         incoming_count: Dict[str, int] = {n.id: 0 for n in workflow.nodes}
 
         for conn in workflow.connections:
+            if conn.from_node not in nodes_by_id or conn.to_node not in nodes_by_id:
+                # Edge left behind after a node was deleted on the canvas
+                logger.warning("Skipping dangling connection %s → %s", conn.from_node, conn.to_node)
+                continue
             outgoing[conn.from_node].append((conn.to_node, conn.condition))
             incoming_count[conn.to_node] = incoming_count.get(conn.to_node, 0) + 1
 
         # ------------------------------------------------------------------
-        # 3. Find start node
+        # 3. Find start node — a trigger wins over any other root node
         # ------------------------------------------------------------------
-        start_node: Optional[WorkflowNode] = None
-        for node in workflow.nodes:
-            node_cls = self._registry.get(node.type)
-            if node_cls.definition.is_trigger or incoming_count.get(node.id, 0) == 0:
-                start_node = node
-                break
+        triggers = [n for n in workflow.nodes if self._registry.get(n.type).definition.is_trigger]
+        roots = [n for n in workflow.nodes if incoming_count.get(n.id, 0) == 0]
+        start_node: Optional[WorkflowNode] = (triggers or roots or [None])[0]
+
+        # Reachability lets a merge node wait until every upstream branch has run
+        reachable = {n.id: self._collect_reachable_nodes(n.id, outgoing) for n in workflow.nodes}
 
         if start_node is None:
             return ExecutionResult(
@@ -195,6 +201,18 @@ class WorkflowEngine:
 
             if current_id in visited:
                 continue  # prevent cycles / double execution
+
+            # Defer while another pending branch still leads here (fan-out → merge).
+            # The "not in reachable[current_id]" check stops cycles deferring forever.
+            if any(
+                other != current_id
+                and other not in visited
+                and current_id in reachable[other]
+                and other not in reachable[current_id]
+                for other, _ in queue
+            ):
+                queue.append((current_id, prev_output))
+                continue
             visited.add(current_id)
 
             node = nodes_by_id.get(current_id)
@@ -275,9 +293,21 @@ class WorkflowEngine:
         t0 = time.monotonic()
 
         logger.info("▶ Executing node %s (%s) config=%s", node.id, node.type, resolved_config)
-        try:
-            output = await node_instance.execute(resolved_config, prev_output, context)
-        except NodeExecutionError as exc:
+        # Error handling: retry transient failures (rate limits, timeouts) per workspace setting
+        max_attempts = 1 + max(0, int(context.retry_attempts or 0))
+        for attempt in range(1, max_attempts + 1):
+            try:
+                output = await node_instance.execute(resolved_config, prev_output, context)
+                break
+            except NodeExecutionError as exc:
+                error = str(exc)
+            except Exception as exc:
+                logger.exception("Unexpected error in node %s (%s)", node.id, node.type)
+                error = f"Unexpected error: {exc}"
+            if attempt < max_attempts:
+                logger.warning("Node %s failed (attempt %d/%d): %s — retrying", node.id, attempt, max_attempts, error)
+                await asyncio.sleep(RETRY_BACKOFF_SECONDS * attempt)
+        else:
             duration_ms = (time.monotonic() - t0) * 1000
             log = NodeLog(
                 node_id=node.id,
@@ -289,23 +319,8 @@ class WorkflowEngine:
                 duration_ms=round(duration_ms, 2),
                 input=prev_output,
                 output={},
-                error=str(exc),
-            )
-            return {}, log
-        except Exception as exc:
-            duration_ms = (time.monotonic() - t0) * 1000
-            logger.exception("Unexpected error in node %s (%s)", node.id, node.type)
-            log = NodeLog(
-                node_id=node.id,
-                node_type=node.type,
-                node_name=node.name or node.type,
-                status=NodeStatus.FAILED,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc).isoformat(),
-                duration_ms=round(duration_ms, 2),
-                input=prev_output,
-                output={},
-                error=f"Unexpected error: {exc}",
+                error=error,
+                attempts=max_attempts,
             )
             return {}, log
 
@@ -325,6 +340,7 @@ class WorkflowEngine:
             duration_ms=round(duration_ms, 2),
             input=prev_output,
             output=output,
+            attempts=attempt,
         )
         return output, log
 

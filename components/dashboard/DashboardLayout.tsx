@@ -22,6 +22,8 @@ const SvgIcon = ({ src, className }: { src: string; className?: string }) => (
 const sidebarItems = [
   { name: "Dashboard", iconSrc: "/assets/dashboard/dasboard.svg", href: "/dashboard" },
   { name: "Workflows", iconSrc: "/assets/dashboard/workflow.svg", href: "/workflows" },
+  { name: "Executions", iconSrc: "/assets/dashboard/dasboard.svg", href: "/executions" },
+  { name: "Analytics", iconSrc: "/assets/dashboard/dasboard.svg", href: "/analytics" },
   { name: "AI Studio", iconSrc: "/assets/dashboard/workflow.svg", href: "/ai" },
   { name: "Credentials", iconSrc: "/assets/dashboard/token.svg", href: "/credentials" },
   { name: "Marketplace", iconSrc: "/assets/dashboard/marketPlace.svg", href: "/marketplace" },
@@ -40,6 +42,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifLoading, setNotifLoading] = useState(false);
   const pathname = usePathname();
   const { user, loading, signOut, sendVerificationEmail, getUserToken } = useAuth();
+  // RBAC: role from the backend — shows the admin link to admins/managers and a read-only badge to viewers
+  const [access, setAccess] = useState<{ role: string; canAccessAdmin: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    import('@/lib/api/client')
+      .then(({ default: apiClient }) => apiClient.get('/api/v1/admin/whoami'))
+      .then((res) => setAccess({ role: res.data.role, canAccessAdmin: !!res.data.canAccessAdmin }))
+      .catch(() => setAccess(null));
+  }, [user]);
+
+  const navItems = access?.canAccessAdmin
+    ? [...sidebarItems, { name: "Admin Panel", iconSrc: "/assets/dashboard/setting.svg", href: "/admin321" }]
+    : sidebarItems;
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -163,7 +179,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 px-4 py-4">
           <ul className="space-y-2">
-            {sidebarItems.map((item) => {
+            {navItems.map((item) => {
               const isActive = pathname === item.href;
 
               return (
@@ -190,6 +206,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               );
             })}
           </ul>
+          {access?.role === 'viewer' && (
+            <p className="mt-4 mx-2 text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2">
+              Viewer role — read-only. Ask an admin for the User role to create or run workflows.
+            </p>
+          )}
         </nav>
 
         {/* User Section */}

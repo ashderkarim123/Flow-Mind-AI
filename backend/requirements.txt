@@ -26,3 +26,4 @@ Pillow
 asyncpg
 motor
 pinecone
+psutil

@@ -129,6 +129,7 @@ export function AddMemberModal({ isOpen, onClose, onSuccess }: AddMemberModalPro
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] appearance-none"
                 >
+                  <option value="viewer" className="bg-[#120d09]">Viewer (read-only)</option>
                   <option value="user" className="bg-[#120d09]">User</option>
                   <option value="manager" className="bg-[#120d09]">Manager</option>
                   <option value="admin" className="bg-[#120d09]">Admin</option>

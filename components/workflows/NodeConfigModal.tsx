@@ -678,14 +678,14 @@ export default function NodeConfigModal({
       if (workflowIdFromUrl) {
         setCurrentWorkflowId(workflowIdFromUrl);
         
-        // Load workflow data
-        const response = await fetch(`/api/workflows/${workflowIdFromUrl}`);
-        const data = await response.json();
-        
-        if (data.success && data.workflow) {
+        // Load the saved workflow from the backend (feeds the variable picker)
+        const apiClient = (await import('@/lib/api/client')).default;
+        const { data } = await apiClient.get(`/api/v1/workflows/${workflowIdFromUrl}`);
+
+        if (data?.workflow) {
           setWorkflowData({
             nodes: data.workflow.nodes || [],
-            connections: data.workflow.connections || []
+            connections: data.workflow.connections || data.workflow.edges || []
           });
         }
       }

@@ -21,15 +21,6 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Fallback tokens from env for local admin/dev
-const ENV_BEARER = (
-  process.env.NEXT_PUBLIC_BACKEND_API_TOEKEN || 
-  process.env.NEXT_PUBLIC_BACKEND_API_TOKEN || 
-  process.env.NEXT_PUBLIC_BACKEND_TOKEN || 
-  ''
-).trim();
-const ENV_SESSION = (process.env.NEXT_PUBLIC_BACKEND_SESSION_TOKEN || '').trim();
-
 // Request interceptor - Add auth/session tokens
 apiClient.interceptors.request.use(
   async (config) => {
@@ -48,8 +39,9 @@ apiClient.interceptors.request.use(
     // Always prefer Firebase ID token for authenticated users
     if (typeof window !== 'undefined' && auth?.currentUser) {
       try {
-        // Force refresh the token for protected requests to avoid stale/expired tokens
-        const idToken = await auth.currentUser.getIdToken(true);
+        // Cached token; Firebase refreshes it automatically shortly before expiry
+        // (a 401 below still forces one refresh + retry)
+        const idToken = await auth.currentUser.getIdToken();
         if (idToken) {
           (config.headers as any).Authorization = `Bearer ${idToken}`;
           try {
@@ -76,18 +68,16 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Fallback: use env/local stored tokens only if no Firebase token was set
-    const token = (config.headers as any).Authorization
-      ? null
-      : bearer || ENV_BEARER || null;
-    const sessionToken = session || ENV_SESSION || null;
+    // Fallback: use the locally stored token only if no Firebase token was set
+    const token = (config.headers as any).Authorization ? null : bearer;
+    const sessionToken = session;
 
     if (token) {
       const raw = token.toString();
       const value = raw.startsWith('Bearer ') ? raw : `Bearer ${raw}`;
       (config.headers as any).Authorization = value;
       if (process.env.NEXT_PUBLIC_DEBUG_TOKENS === 'true') {
-        console.log('[API Client Debug] Using fallback token source:', bearer ? 'localStorage' : 'env');
+        console.log('[API Client Debug] Using fallback token from localStorage');
       }
     }
     if (sessionToken) {
@@ -118,7 +108,7 @@ apiClient.interceptors.response.use(
                                  error.config?.url?.includes('/sign-up');
         const isAnalyticsEndpoint = error.config?.url?.includes('/analytics/');
         const isInternalAppRoute = [
-          '/dashboard', '/team', '/profile', '/settings', '/workflows', '/marketplace', '/credentials', '/ai', '/tokens'
+          '/dashboard', '/executions', '/analytics', '/team', '/profile', '/settings', '/workflows', '/marketplace', '/credentials', '/ai', '/tokens'
         ].some((route) => currentPath === route || currentPath.startsWith(route));
 
         if (auth?.currentUser && !config?._retry) {

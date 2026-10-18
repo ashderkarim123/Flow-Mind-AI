@@ -8,7 +8,9 @@ Supports:
 
 from __future__ import annotations
 from typing import Any, Dict
+import json
 import logging
+import os
 
 from nodes.base import BaseNode, NodeDefinition, NodeParameter, NodeOutputField, ParameterType, NodeExecutionError, SelectOption
 
@@ -125,17 +127,8 @@ class OpenAI(BaseNode):
         temperature = float(config.get("temperature", 0.7))
         max_tokens = int(config.get("max_tokens", 1000))
         enable_tools = config.get("enable_tools", True)
-
-        api_key = (
-            config.get("api_key")
-            or context.get_credential("openai_api_key", "api_key", "")
-        )
-
-        if not api_key:
-            raise NodeExecutionError(
-                "OpenAI API key is required. Set it in the node config or in Credentials.",
-                self.definition.type,
-            )
+        api_key = self._api_key(config, context)
+        url = f"{self._base_url(config)}/chat/completions"
 
         try:
             import httpx
@@ -165,9 +158,9 @@ class OpenAI(BaseNode):
                 request_body["tools"] = tools
                 request_body["tool_choice"] = "auto"  # Let OpenAI decide whether to use tools
 
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=self.TIMEOUT) as client:
                 response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    url,
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -177,8 +170,10 @@ class OpenAI(BaseNode):
                 data = response.json()
 
             if "error" in data:
+                err = data["error"]
+                msg = err.get("message", "Unknown error") if isinstance(err, dict) else str(err)
                 raise NodeExecutionError(
-                    f"OpenAI API error: {data['error'].get('message', 'Unknown error')}",
+                    f"{self.definition.display_name} API error: {msg}",
                     self.definition.type,
                 )
 
@@ -204,23 +199,19 @@ class OpenAI(BaseNode):
                     tool_name = tool_call["function"]["name"]
                     arguments = tool_call["function"]["arguments"]
 
-                    # Parse JSON arguments
-                    import json
-
                     try:
                         if isinstance(arguments, str):
                             arguments = json.loads(arguments)
+                        logger.info("▶ Executing tool: %s with args: %s", tool_name, arguments)
+                        result = await mcp_client.call_tool(tool_name, arguments)
                     except json.JSONDecodeError:
                         logger.error("Failed to parse tool arguments: %s", arguments)
-                        continue
-
-                    logger.info("▶ Executing tool: %s with args: %s", tool_name, arguments)
-
-                    # Call the MCP tool
-                    result = await mcp_client.call_tool(tool_name, arguments)
+                        result = {"error": "Invalid tool arguments"}
                     database_results[tool_name] = result
 
+                    # Every tool_call in the assistant message needs a matching tool reply
                     tool_calls_made.append({
+                        "id": tool_call.get("id"),
                         "name": tool_name,
                         "arguments": arguments,
                         "result": result,
@@ -228,18 +219,18 @@ class OpenAI(BaseNode):
 
                 # If tools were called, do another request with the results
                 if tool_calls_made:
-                    messages.append({"role": "assistant", "message": choice["message"]})
+                    messages.append(choice["message"])
                     for tool_call_info in tool_calls_made:
                         messages.append({
                             "role": "tool",
-                            "tool_use_id": tool_call_info["name"],
-                            "content": str(tool_call_info["result"]),
+                            "tool_call_id": tool_call_info["id"],
+                            "content": json.dumps(tool_call_info["result"], default=str),
                         })
 
-                    # Request follow-up response from OpenAI
-                    async with httpx.AsyncClient(timeout=60) as client:
+                    # Request follow-up response with the tool results
+                    async with httpx.AsyncClient(timeout=self.TIMEOUT) as client:
                         response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
+                            url,
                             headers={
                                 "Authorization": f"Bearer {api_key}",
                                 "Content-Type": "application/json",
@@ -276,5 +267,102 @@ class OpenAI(BaseNode):
         except NodeExecutionError:
             raise
         except Exception as exc:
-            logger.exception("OpenAI execution failed")
-            raise NodeExecutionError(f"OpenAI request failed: {exc}", self.definition.type)
+            logger.exception("%s execution failed", self.definition.type)
+            raise NodeExecutionError(
+                f"{self.definition.display_name} request failed: {exc!r}", self.definition.type
+            )
+
+    # ------------------------------------------------------------------
+    # Provider hooks — overridden by OpenAI-compatible providers below
+    # ------------------------------------------------------------------
+
+    TIMEOUT = 60
+
+    def _base_url(self, config: Dict[str, Any]) -> str:
+        return os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+
+    def _api_key(self, config: Dict[str, Any], context: Any) -> str:
+        api_key = config.get("api_key") or context.get_credential("openai_api_key", "api_key", "")
+        if not api_key:
+            raise NodeExecutionError(
+                "OpenAI API key is required. Set it in the node config, in Credentials, "
+                "or as OPENAI_API_KEY on the server.",
+                self.definition.type,
+            )
+        return api_key
+
+
+class LocalLLM(OpenAI):
+    """Self-hosted model through any OpenAI-compatible server (Ollama, LM Studio, vLLM).
+
+    No API key or internet access to an AI provider is needed — point
+    LOCAL_LLM_BASE_URL at the machine running the model.
+    """
+
+    definition = NodeDefinition(
+        type="LocalLLM",
+        display_name="Local LLM (Ollama)",
+        description=(
+            "Run a self-hosted open model (Llama, Qwen, Mistral, Gemma…) through Ollama or any "
+            "OpenAI-compatible server. No API key or paid provider needed."
+        ),
+        category="AI",
+        icon="🦙",
+        color="#111827",
+        is_trigger=False,
+        required_credentials=[],
+        parameters=[
+            NodeParameter(
+                name="prompt",
+                display_name="Prompt",
+                type=ParameterType.EXPRESSION,
+                required=True,
+                placeholder="Summarize the following: {{$node.n1.response_body}}",
+            ),
+            NodeParameter(
+                name="system_prompt",
+                display_name="System Prompt",
+                type=ParameterType.STRING,
+                required=False,
+                default="You are a helpful assistant.",
+            ),
+            NodeParameter(
+                name="model",
+                display_name="Model",
+                type=ParameterType.STRING,
+                required=False,
+                default=os.getenv("LOCAL_LLM_MODEL", "llama3.2"),
+                description="Model name as pulled on the server, e.g. `ollama pull llama3.2`.",
+            ),
+            NodeParameter(
+                name="base_url",
+                display_name="Server URL",
+                type=ParameterType.STRING,
+                required=False,
+                default="",
+                placeholder="http://localhost:11434/v1",
+                description="Leave blank to use LOCAL_LLM_BASE_URL from the server environment.",
+            ),
+            NodeParameter(name="temperature", display_name="Temperature", type=ParameterType.NUMBER,
+                          required=False, default=0.7, min_value=0, max_value=2),
+            NodeParameter(name="max_tokens", display_name="Max Tokens", type=ParameterType.NUMBER,
+                          required=False, default=1000, min_value=1, max_value=16000),
+        ],
+        outputs=OpenAI.definition.outputs,
+    )
+
+    TIMEOUT = 300  # CPU-only servers can take minutes for long answers
+
+    async def execute(self, config: Dict[str, Any], input_data: Dict[str, Any], context: Any) -> Dict[str, Any]:
+        return await super().execute({
+            **config,
+            "model": config.get("model") or os.getenv("LOCAL_LLM_MODEL", "llama3.2"),
+            # Small local models handle tool calling poorly — keep it opt-in
+            "enable_tools": config.get("enable_tools", False),
+        }, input_data, context)
+
+    def _base_url(self, config: Dict[str, Any]) -> str:
+        return (config.get("base_url") or os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:11434/v1")).rstrip("/")
+
+    def _api_key(self, config: Dict[str, Any], context: Any) -> str:
+        return config.get("api_key") or os.getenv("LOCAL_LLM_API_KEY", "ollama")  # Ollama ignores the key

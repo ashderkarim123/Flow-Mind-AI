@@ -6,6 +6,11 @@ _backend_dir = Path(__file__).parent.parent  # …/backend/
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
+# Export backend/.env to os.environ so os.getenv() sees provider keys / LOCAL_LLM_* too
+# (pydantic settings only reads it into the Settings object). Real env vars still win.
+from dotenv import load_dotenv
+load_dotenv(_backend_dir / ".env")
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -25,6 +30,8 @@ from app.api.v1.telegram import router as telegram_router
 from app.api.v1.credentials import router as credentials_router
 from app.api.v1.users import router as users_router          # FlowMind AI: Module 2 RBAC
 from app.api.v1.team import router as team_router            # FlowMind AI: Team API
+from app.api.v1.ai import router as ai_router                # Comparative AI responses
+from app.api.v1.admin import router as admin_router          # Administration module
 from app.api.routes.billing import router as billing_router
 import logging
 import uvicorn
@@ -143,6 +150,8 @@ app.include_router(telegram_router, prefix=f"/api/{settings.API_VERSION}")
 app.include_router(credentials_router, prefix=f"/api/{settings.API_VERSION}")
 app.include_router(users_router, prefix=f"/api/{settings.API_VERSION}")   # Module 2 RBAC
 app.include_router(team_router, prefix=f"/api/{settings.API_VERSION}")    # FlowMind AI: Team API
+app.include_router(ai_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(admin_router, prefix=f"/api/{settings.API_VERSION}")
 app.include_router(billing_router)
 
 
@@ -172,6 +181,10 @@ async def startup_event():
         logger.info(f"NodeRegistry initialised: {len(registry)} node types registered")
     except Exception as exc:
         logger.error(f"Failed to initialise NodeRegistry: {exc}")
+
+    # Re-register cron schedules that were active before this restart
+    from app.api.v1.workflows import restore_schedules
+    asyncio.create_task(restore_schedules())
 
     # Start scheduled backup task
     asyncio.create_task(scheduled_backup_task())

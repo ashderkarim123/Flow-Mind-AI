@@ -120,7 +120,37 @@ FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.c
 
 # CORS
 CORS_ORIGINS=["http://localhost:3000"]
+
+# AI providers — server-wide fallback keys. A key set on a node or in the
+# user's Credentials still takes priority. Leave out any you don't use.
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
+GROQ_API_KEY=
+
+# Local LLM (Ollama / LM Studio / vLLM — any OpenAI-compatible server)
+LOCAL_LLM_BASE_URL=http://localhost:11434/v1
+LOCAL_LLM_MODEL=llama3.2
+
+# Comma-separated emails treated as platform admins (matches the /admin321 gate)
+ADMIN_EMAILS=admin@gmail.com
 ```
+
+### Running on a local LLM (no API keys)
+
+The **Local LLM (Ollama)** node and the *AI Integration → Compare* page work
+with any self-hosted model, so the whole platform can be tested on a single
+bare-metal server without paid API keys:
+
+```bash
+# on the server (Linux/Windows/macOS)
+curl -fsSL https://ollama.com/install.sh | sh   # Windows: download from ollama.com
+ollama pull llama3.2          # ~2 GB, runs on CPU; use qwen2.5:7b / llama3.1:8b with a GPU
+ollama serve                  # listens on :11434
+```
+
+Then set `LOCAL_LLM_BASE_URL` (default `http://localhost:11434/v1`) and use the
+Local LLM node in a workflow. Firebase Auth/Firestore still need internet access.
 
 ### Firebase Setup
 
@@ -187,7 +217,10 @@ curl -X POST http://localhost:8000/api/v1/auth/signup \
 
 ## 🚀 Deployment
 
-### Docker (Coming Soon)
+### Docker
+
+`docker build -t flowmind-backend . && docker run --env-file .env -p 8000:8000 flowmind-backend`,
+or run the whole stack with `docker compose up` from the repo root (see the root README).
 
 ### Manual Deployment
 

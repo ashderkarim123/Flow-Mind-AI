@@ -92,6 +92,7 @@ class NodeLog(BaseModel):
     input: Dict[str, Any] = {}
     output: Dict[str, Any] = {}
     error: Optional[str] = None
+    attempts: int = 1  # >1 when the node was retried after a failure
 
 
 # ---------------------------------------------------------------------------

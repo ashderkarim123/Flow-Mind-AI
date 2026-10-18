@@ -79,6 +79,7 @@ interface WorkspaceSettings {
   collaborationMode: 'open' | 'restricted' | 'private';
   defaultExecutionTimeout: number;
   maxWorkflowNodes: number;
+  retryAttempts: number;
   enableAnalytics: boolean;
 }
 
@@ -207,6 +208,7 @@ export default function SettingsView({ user }: SettingsViewProps) {
       collaborationMode: profileData?.workspace.collaborationMode || 'restricted',
       defaultExecutionTimeout: profileData?.workspace.defaultExecutionTimeout || 300,
       maxWorkflowNodes: profileData?.workspace.maxWorkflowNodes || 100,
+      retryAttempts: profileData?.workspace.retryAttempts ?? 0,
       enableAnalytics: profileData?.workspace.enableAnalytics ?? true
     },
     integrations: profileData?.integrations?.map(integration => ({
@@ -731,7 +733,7 @@ function WorkspaceTab({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-2">Default Timeout (seconds)</label>
+              <label className="block text-sm font-medium text-white/80 mb-2">Execution timeout (seconds)</label>
               <input
                 type="number"
                 value={settings.defaultExecutionTimeout}
@@ -743,6 +745,40 @@ function WorkspaceTab({
                 }}
                 className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-lg text-white focus:border-[#1D4ED8] focus:outline-none"
               />
+              <p className="text-white/40 text-xs mt-1">A run is stopped and marked failed after this long (5–3600s).</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">Retry failed steps</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={settings.retryAttempts}
+                  onChange={async (e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value)) await onUpdate({ retryAttempts: Math.min(Math.max(value, 0), 5) });
+                  }}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-lg text-white focus:border-[#1D4ED8] focus:outline-none"
+                />
+                <p className="text-white/40 text-xs mt-1">Retries with 1s, 2s… back-off (0–5).</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">Max nodes per workflow</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={settings.maxWorkflowNodes}
+                  onChange={async (e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value)) await onUpdate({ maxWorkflowNodes: Math.min(Math.max(value, 1), 500) });
+                  }}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-lg text-white focus:border-[#1D4ED8] focus:outline-none"
+                />
+                <p className="text-white/40 text-xs mt-1">Larger workflows are rejected at run time.</p>
+              </div>
             </div>
           </div>
         </div>

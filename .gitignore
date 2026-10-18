@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -64,3 +65,8 @@ render_firebase_credentials.txt
 # Firebase client config
 lib/firebase-config.ts
 
+
+# One-off key-repair scripts must never be committed again (they held a service-account key)
+fix_key.py
+inject_key.py
+backend/create_env.py

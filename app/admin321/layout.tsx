@@ -1,14 +1,16 @@
 "use client";
 
-import React from "react";
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import AdminLayout from "@/components/admin/AdminLayout";
+import apiClient from "@/lib/api/client";
 
 export default function AdminAppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  // null = still checking with the backend
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -19,14 +21,29 @@ export default function AdminAppLayout({ children }: { children: React.ReactNode
       return;
     }
 
-    // Logged in but not the admin account -> send to normal dashboard
-    if (user.email !== "admin@gmail.com") {
-      router.replace("/dashboard");
-    }
+    // Role comes from the backend (Firestore role / admin claim), not from the client
+    let cancelled = false;
+    apiClient
+      .get("/api/v1/admin/whoami")
+      .then((res) => {
+        if (cancelled) return;
+        // Admins and managers (read-only) may open the panel; actions stay admin-only on the backend
+        const allowed = !!res.data?.canAccessAdmin;
+        setIsAdmin(allowed);
+        if (!allowed) router.replace("/dashboard");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsAdmin(false);
+        router.replace("/dashboard");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, loading, router]);
 
-  // While checking auth, or while redirecting away, render nothing to avoid flicker
-  if (loading || !user || user.email !== "admin@gmail.com") {
+  // While checking, or while redirecting away, render nothing to avoid flicker
+  if (loading || !user || !isAdmin) {
     return null;
   }
 

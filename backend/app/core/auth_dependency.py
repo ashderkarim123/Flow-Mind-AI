@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 import logging
+import os
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.firebase_service import firebase_service
@@ -59,25 +60,71 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
 
 
+def is_admin(current_user: Dict[str, Any]) -> bool:
+    """True for admins: role/isAdmin in Firestore, an `admin` custom claim, or an ADMIN_EMAILS address."""
+    # ponytail: ADMIN_EMAILS mirrors the frontend's email gate on /admin321; drop it once roles are assigned
+    admin_emails = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "admin@gmail.com").split(",") if e.strip()}
+    return bool(
+        current_user.get('isAdmin', False)
+        or current_user.get('role') == 'admin'
+        or current_user.get('firebase_claims', {}).get('admin', False)
+        or (current_user.get('email') or '').lower() in admin_emails
+    )
+
+
+# ---------------------------------------------------------------------------
+# RBAC — User Management module. Role is users/{uid}.role in Firestore.
+# ---------------------------------------------------------------------------
+
+_VIEWER = {"workflow:read", "execution:read", "analytics:own"}
+_USER = _VIEWER | {"workflow:write", "workflow:execute", "ai:use"}
+_MANAGER = _USER | {"analytics:platform", "admin:read"}   # read-only access to the admin panel
+
+ROLE_PERMISSIONS: Dict[str, set] = {
+    "viewer": _VIEWER,    # read-only: browse workflows, runs and own analytics
+    "user": _USER,        # build, run and schedule own workflows; use AI models
+    "manager": _MANAGER,  # + platform-wide monitoring and analytics
+    "admin": {"*"},       # everything, including moderation and role changes
+}
+ROLES = tuple(ROLE_PERMISSIONS)
+
+
+def role_of(current_user: Dict[str, Any]) -> str:
+    if is_admin(current_user):
+        return "admin"
+    role = current_user.get("role")
+    return role if role in ROLE_PERMISSIONS else "user"
+
+
+def has_permission(current_user: Dict[str, Any], permission: str) -> bool:
+    perms = ROLE_PERMISSIONS[role_of(current_user)]
+    return "*" in perms or permission in perms
+
+
+def require_permission(permission: str):
+    """FastAPI dependency: 403 unless the caller's role grants `permission`."""
+    async def dependency(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+        if not has_permission(current_user, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your role ({role_of(current_user)}) is not allowed to do this ({permission}).",
+            )
+        return current_user
+    return dependency
+
+
 async def get_admin_user(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     """
     Dependency to get current user and ensure they have admin privileges
-    
+
     Returns:
         dict: Admin user information
-        
+
     Raises:
         HTTPException: 403 if user is not an admin
     """
     try:
-        # Check if user has admin privileges
-        is_admin = (
-            current_user.get('isAdmin', False) or 
-            current_user.get('role') == 'admin' or
-            current_user.get('firebase_claims', {}).get('admin', False)
-        )
-        
-        if not is_admin:
+        if not is_admin(current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin access required"

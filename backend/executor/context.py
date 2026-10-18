@@ -7,7 +7,8 @@ and the running execution log.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import os
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from pydantic import BaseModel, Field, PrivateAttr
 
 from nodes.base import NodeLog
@@ -55,6 +56,9 @@ class ExecutionContext(BaseModel):
     # Append-only execution log
     logs: List[NodeLog] = Field(default_factory=list)
 
+    # Error handling: how many times a failed node is retried (workspace setting)
+    retry_attempts: int = 0
+
     # Private attributes (not part of Pydantic model fields)
     # Database clients — registered by the API layer
     # Keyed by database type: "postgres", "mongodb", "pinecone"
@@ -62,6 +66,9 @@ class ExecutionContext(BaseModel):
 
     # MCP client — for AI nodes to call MCP tools
     _mcp_client: Optional["MCPClient"] = PrivateAttr(default=None)
+
+    # Called with all logs so far after each node finishes
+    _log_listener: Optional[Callable[[List[NodeLog]], None]] = PrivateAttr(default=None)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -76,8 +83,17 @@ class ExecutionContext(BaseModel):
             self.trigger_output = output
 
     def get_credential(self, cred_type: str, key: str, default: Optional[str] = None) -> Optional[str]:
-        """Safely retrieve a specific key from a credential type."""
-        return self.credentials.get(cred_type, {}).get(key, default)
+        """Safely retrieve a specific key from a credential type.
+
+        Falls back to a server env var named after the type
+        (e.g. "openai_api_key" → OPENAI_API_KEY).
+        """
+        # ponytail: one platform-wide key per provider; per-user keys still win via node config / credentials
+        return (
+            self.credentials.get(cred_type, {}).get(key)
+            or os.getenv(cred_type.upper())
+            or default
+        )
 
     def set_variable(self, name: str, value: Any) -> None:
         """Write a workflow variable (called by SetVariable node)."""
@@ -85,6 +101,14 @@ class ExecutionContext(BaseModel):
 
     def append_log(self, log: NodeLog) -> None:
         self.logs.append(log)
+        if self._log_listener:
+            try:
+                self._log_listener(self.logs)  # live progress (e.g. persisted for the monitoring view)
+            except Exception:
+                pass  # progress reporting must never break a run
+
+    def set_log_listener(self, listener: Optional[Callable[[List[NodeLog]], None]]) -> None:
+        self._log_listener = listener
 
     # ------------------------------------------------------------------
     # Database access

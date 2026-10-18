@@ -1,0 +1,61 @@
+# FlowMind AI — full stack on one machine (e.g. a bare-metal server)
+#
+#   docker compose up -d --build                       # frontend + backend
+#   docker compose --profile local-llm up -d --build   # + self-hosted LLM (Ollama)
+#   docker compose exec ollama ollama pull llama3.2    # once, to download the model
+#
+# Config:
+#   backend/.env  — backend secrets (Firebase service account, AI keys, CORS_ORIGINS)
+#   .env          — NEXT_PUBLIC_* build values for the frontend (see README)
+#   .env.local    — optional frontend server-side secrets (FIREBASE_*, STRIPE_SECRET…)
+
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      # Reaches the ollama service when the local-llm profile is on (ignored otherwise)
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://ollama:11434/v1}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BACKEND_API_URL: ${NEXT_PUBLIC_BACKEND_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+        NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:-}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+    env_file:
+      - path: ./.env.local
+        required: false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.6.5
+    profiles: ["local-llm"]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # GPU servers: uncomment to give Ollama the NVIDIA GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+volumes:
+  ollama:

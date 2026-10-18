@@ -16,6 +16,15 @@ class Webhook(BaseNode):
         is_trigger=True,
         parameters=[
             NodeParameter(
+                name="secret",
+                display_name="Secret",
+                type=ParameterType.STRING,
+                required=False,
+                default="",
+                description="If set, callers must send it as the X-Webhook-Secret header or ?secret= query param",
+                is_private=True,
+            ),
+            NodeParameter(
                 name="path",
                 display_name="Webhook Path",
                 type=ParameterType.STRING,

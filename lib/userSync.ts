@@ -188,6 +188,7 @@ export interface FirebaseUser {
     collaborationMode: 'open' | 'restricted' | 'private';
     defaultExecutionTimeout: number;
     maxWorkflowNodes: number;
+    retryAttempts?: number;
     enableAnalytics: boolean;
   };
   

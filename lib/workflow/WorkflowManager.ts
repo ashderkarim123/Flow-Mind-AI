@@ -196,8 +196,10 @@ export class WorkflowManager {
           });
 
           // Convert backend response to WorkflowExecution format
+          // summary carries the persisted execution id and token usage (see backend run_and_record)
+          const summary = ((response as any).summary || {}) as { execution_id?: string; tokensUsed?: number };
           const execution: WorkflowExecution = {
-            id: `exec_${executionStartTime}_${Math.random().toString(36).substr(2, 9)}`,
+            id: summary.execution_id || `exec_${executionStartTime}_${Math.random().toString(36).substr(2, 9)}`,
             workflowId: workflow.id,
             status: response.status === 'completed' || response.status === 'success' ? 'completed' : 'failed',
             startTime: executionStartTime,
@@ -206,7 +208,7 @@ export class WorkflowManager {
             input: input,
             nodeLogs: (response.node_logs as any) || [],
             metadata: {
-              tokensUsed: 0,
+              tokensUsed: summary.tokensUsed || 0,
               cost: 0
             },
             output: response.final_output || {},

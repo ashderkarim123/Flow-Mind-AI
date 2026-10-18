@@ -6,7 +6,7 @@ All endpoints require admin privileges.
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import Dict, Any, Optional, List
-from app.core.auth_dependency import get_current_user, get_admin_user
+from app.core.auth_dependency import ROLES, get_current_user, get_admin_user, require_permission
 from app.models.user_models import (
     UserProfile,
     UserListResponse,
@@ -23,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 router = APIRouter(prefix="/users", tags=["User Management"])
 logger = logging.getLogger(__name__)
 
-ALLOWED_ROLES = {"user", "admin", "manager"}
+ALLOWED_ROLES = set(ROLES)  # viewer, user, manager, admin — permissions in core.auth_dependency
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ async def list_users(
     search: Optional[str] = Query(None, description="Search by email or display name"),
     role: Optional[str] = Query(None, description="Filter by role"),
     disabled: Optional[bool] = Query(None, description="Filter by disabled status"),
-    current_user: Dict[str, Any] = Depends(get_admin_user),
+    current_user: Dict[str, Any] = Depends(require_permission("admin:read")),
 ):
     """
     [ADMIN] List all users with optional filtering and pagination.
@@ -134,7 +134,7 @@ async def list_users(
 
 @router.get("/stats", response_model=UserStatsResponse)
 async def get_user_stats(
-    current_user: Dict[str, Any] = Depends(get_admin_user),
+    current_user: Dict[str, Any] = Depends(require_permission("admin:read")),
 ):
     """
     [ADMIN] Get aggregate user statistics for the admin dashboard.
@@ -198,7 +198,7 @@ async def get_user_stats(
 @router.get("/{uid}", response_model=UserProfile)
 async def get_user(
     uid: str,
-    current_user: Dict[str, Any] = Depends(get_admin_user),
+    current_user: Dict[str, Any] = Depends(require_permission("admin:read")),
 ):
     """
     [ADMIN] Get a specific user by UID.
@@ -231,7 +231,7 @@ async def update_user_role(
 ):
     """
     [ADMIN] Assign a role to a user.
-    Allowed roles: user, admin, manager.
+    Allowed roles: viewer, user, manager, admin.
     """
     if body.role not in ALLOWED_ROLES:
         raise HTTPException(
@@ -285,7 +285,7 @@ async def update_user_status(
         if uid == current_user.get("uid"):
             raise HTTPException(status_code=400, detail="You cannot disable your own account")
 
-        result = await firebase_service.update_user(uid, {"disabled": body.disabled})
+        result = await firebase_service.update_user(uid, disabled=body.disabled)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail="Failed to update user status")
 
@@ -302,7 +302,7 @@ async def update_user_status(
 @router.get("/{uid}/workflows", response_model=UserWorkflowsResponse)
 async def get_user_workflows(
     uid: str,
-    current_user: Dict[str, Any] = Depends(get_admin_user),
+    current_user: Dict[str, Any] = Depends(require_permission("admin:read")),
 ):
     """
     [ADMIN] Get all workflows belonging to a user.

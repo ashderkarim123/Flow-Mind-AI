@@ -35,6 +35,12 @@ const ROLE_BADGE: Record<string, { label: string; color: string; bg: string; ico
     bg: 'rgba(6,182,212,0.12)',
     icon: <Briefcase size={10} />,
   },
+  viewer: {
+    label: 'Viewer',
+    color: 'text-white/40',
+    bg: 'rgba(255,255,255,0.03)',
+    icon: <User size={10} />,
+  },
   user: {
     label: 'User',
     color: 'text-white/60',

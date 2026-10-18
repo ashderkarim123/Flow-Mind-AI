@@ -121,7 +121,7 @@ class Groq(BaseNode):
             enable_tools = raw_enable_tools.strip().lower() in {"1", "true", "yes", "on"}
         else:
             enable_tools = bool(raw_enable_tools)
-        api_key = str(config.get("api_key") or "").strip()
+        api_key = str(config.get("api_key") or context.get_credential("groq_api_key", "api_key", "")).strip()
 
         if not api_key:
             raise NodeExecutionError(

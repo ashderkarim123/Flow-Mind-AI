@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+backend
+Raw Data
+docs
+*.pdf
+*.mp4
+*.ppt
+*.pptx

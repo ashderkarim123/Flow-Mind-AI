@@ -24,6 +24,7 @@ from app.models.template_models import (
 from app.services.firebase_service import firebase_service
 from app.services.template_service import template_service
 from app.core.security import rate_limit
+from app.core.auth_dependency import get_admin_user
 from typing import Optional, List
 import logging
 
@@ -710,26 +711,22 @@ async def get_template_statistics(request: Request):
         )
 
 
-# ==================== Admin Endpoints (TODO: Add admin authentication) ====================
+# ==================== Admin Endpoints ====================
 
 @router.post("/admin/toggle-featured", response_model=dict)
 @rate_limit(requests_per_minute=20)
 async def toggle_featured_status(
     request: Request,
     data: TemplateFeaturedToggleRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_admin_user)
 ):
     """
     Toggle featured status for a template (Admin only)
     
     **Requires admin authentication**
     
-    TODO: Add admin role verification
     """
     try:
-        # TODO: Verify user is admin
-        # For now, allow any authenticated user (update in production)
-        
         result = await template_service.toggle_featured(
             template_id=data.templateId,
             is_featured=data.isFeatured
@@ -758,19 +755,15 @@ async def toggle_featured_status(
 async def toggle_active_status(
     request: Request,
     data: TemplateActiveToggleRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_admin_user)
 ):
     """
     Toggle active status for a template (Admin only)
     
     **Requires admin authentication**
     
-    TODO: Add admin role verification
     """
     try:
-        # TODO: Verify user is admin
-        # For now, allow any authenticated user (update in production)
-        
         result = await template_service.toggle_active(
             template_id=data.templateId,
             is_active=data.isActive

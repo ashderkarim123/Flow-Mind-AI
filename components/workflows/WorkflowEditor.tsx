@@ -172,8 +172,14 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
     if (!wfId) return;
     setExecutionHistoryLoading(true);
     try {
-      const execs = await workflowManager.listExecutions(wfId);
-      setExecutionHistory(execs.sort((a, b) => b.startTime - a.startTime));
+      // Backend records cover manual, scheduled and webhook runs (newest first)
+      const apiClient = (await import('@/lib/api/client')).default;
+      const { data } = await apiClient.get(`/api/v1/workflows/${wfId}/executions`, { params: { limit: 50 } });
+      setExecutionHistory((data.executions || []).map((e: any) => ({
+        ...e,
+        nodeLogs: (e.nodeLogs || []).map((l: any) => ({ ...l, duration: l.executionTimeMs })),
+        metadata: { cost: 0, ...(e.metadata || {}) },
+      })) as WorkflowExecution[]);
     } catch {
       // silently fail — history will be empty
     } finally {

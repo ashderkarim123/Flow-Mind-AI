@@ -244,6 +244,15 @@ export const HARDCODED_NODES: NodeDef[] = [
     isStartNode: false,
   },
   {
+    id: "localllm",
+    name: "Local LLM (Ollama)",
+    type: "LocalLLM",
+    category: "AI/ML",
+    description: "Self-hosted open models via Ollama — no API key needed",
+    icon: "🦙",
+    isStartNode: false,
+  },
+  {
     id: "gemini",
     name: "Gemini",
     type: "Gemini",
