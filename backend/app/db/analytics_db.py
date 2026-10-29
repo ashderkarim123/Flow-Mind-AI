@@ -402,7 +402,9 @@ class AnalyticsDB:
         try:
             now = datetime.utcnow()
             s = summarize(self.executions(now - timedelta(hours=24), now))
-            status = 'down' if s['errorRate'] > 25 else 'degraded' if s['errorRate'] > 10 else 'healthy'
+            # A handful of runs says nothing about the platform (one misconfigured user workflow read as "down")
+            enough = s['total'] >= 10   # ponytail: fixed sample floor; make it configurable if needed
+            status = 'healthy' if not enough else 'down' if s['errorRate'] > 25 else 'degraded' if s['errorRate'] > 10 else 'healthy'
             return {
                 'success': True,
                 'status': status,

@@ -153,15 +153,6 @@ export default function ProfileView({ user }: ProfileViewProps) {
     }, 3000);
   };
   
-  // If still loading, show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading profile...</div>
-      </div>
-    );
-  }
-  
   // Transform Firebase data to component-friendly format
   const profile: ProfileData = {
     id: profileData?.uid || user.id,
@@ -252,6 +243,15 @@ export default function ProfileView({ user }: ProfileViewProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'billing' | 'preferences'>('profile');
   const [editingProfile, setEditingProfile] = useState(false);
   const [editedData, setEditedData] = useState(profile);
+
+  // After every hook: returning earlier changed the hook count between renders (React error #310)
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading profile...</div>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: UserIcon },
