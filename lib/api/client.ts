@@ -108,7 +108,7 @@ apiClient.interceptors.response.use(
                                  error.config?.url?.includes('/sign-up');
         const isAnalyticsEndpoint = error.config?.url?.includes('/analytics/');
         const isInternalAppRoute = [
-          '/dashboard', '/executions', '/analytics', '/team', '/profile', '/settings', '/workflows', '/marketplace', '/credentials', '/ai', '/tokens'
+          '/dashboard', '/executions', '/analytics', '/connections', '/team', '/profile', '/settings', '/workflows', '/marketplace', '/credentials', '/ai', '/tokens'
         ].some((route) => currentPath === route || currentPath.startsWith(route));
 
         if (auth?.currentUser && !config?._retry) {

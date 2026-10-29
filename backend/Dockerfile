@@ -12,6 +12,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Optional: Node.js (npx) and uv (uvx) so the "command" MCP servers from the catalog can run in this container.
+# Off by default - it adds ~150 MB. Enable with: docker compose build --build-arg INSTALL_MCP_RUNTIMES=true
+ARG INSTALL_MCP_RUNTIMES=false
+RUN if [ "$INSTALL_MCP_RUNTIMES" = "true" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+      && rm -rf /var/lib/apt/lists/* && pip install --no-cache-dir uv; \
+    fi
+
 # Run as an unprivileged user
 RUN useradd --create-home flowmind && chown -R flowmind /app
 USER flowmind

@@ -70,3 +70,6 @@ lib/firebase-config.ts
 fix_key.py
 inject_key.py
 backend/create_env.py
+
+# Firebase emulator logs
+*-debug.log

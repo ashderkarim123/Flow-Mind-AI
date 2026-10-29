@@ -1,0 +1,103 @@
+# FlowMind AI — FULLY OFFLINE stack for a single server (no cloud AI, no Google/Firebase, no internet at run time)
+#
+#   AI        Ollama running a local model (Qwen, Llama, …)
+#   Login/DB  Firebase *emulators* (Auth + Firestore) running in a container
+#   App       Next.js frontend + FastAPI backend
+#
+# First time (internet needed ONCE to build images and download a model):
+#   docker compose -f docker-compose.offline.yml up -d --build
+#   docker compose -f docker-compose.offline.yml exec ollama ollama pull qwen2.5:7b
+#
+# Reached from other computers on your network? Tell the stack its own address:
+#   APP_URL=http://192.168.1.50:3000 API_URL=http://192.168.1.50:8000 \
+#     docker compose -f docker-compose.offline.yml up -d --build
+#
+# Notes
+#   * Sign up with any e-mail/password: accounts live only on this server. Verification e-mails are not sent.
+#   * Google sign-in, Stripe payments and e-mail (OTP) features need the internet and are unavailable.
+#   * The first account is a normal user. Make it an administrator by setting role="admin" on its
+#     users/<uid> document, or add its e-mail to ADMIN_EMAILS below.
+#   * Data (accounts, workflows) is kept in the `emulator-data` volume when you `docker compose stop`/`down`.
+
+name: flowmind-offline
+
+x-app-url: &app_url ${APP_URL:-http://localhost:3000}
+x-api-url: &api_url ${API_URL:-http://localhost:8000}
+
+services:
+  firebase-emulator:
+    build:
+      context: .
+      dockerfile: deploy/firebase-emulator/Dockerfile
+    environment:
+      FIREBASE_PROJECT_ID: demo-flowmind
+    volumes:
+      - emulator-data:/data
+    ports:
+      - "9099:9099"   # Auth   (the browser talks to these directly)
+      - "8080:8080"   # Firestore
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.6.5
+    environment:
+      OLLAMA_CONTEXT_LENGTH: "8192"   # room for the workflow-builder prompt and tool lists
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # GPU server? Uncomment to give Ollama the NVIDIA GPU (needs the NVIDIA container toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_MCP_RUNTIMES: ${INSTALL_MCP_RUNTIMES:-false}   # true = Node.js + uv inside, for the "command" MCP servers
+    environment:
+      ENVIRONMENT: production
+      FIREBASE_PROJECT_ID: demo-flowmind
+      FIRESTORE_EMULATOR_HOST: firebase-emulator:8080
+      FIREBASE_AUTH_EMULATOR_HOST: firebase-emulator:9099
+      CORS_ORIGINS: *app_url
+      ALLOWED_HOSTS: "*"               # reached by IP / LAN name, not only localhost
+      ALLOW_PRIVATE_HOSTS: "true"      # tool servers and Ollama live on this machine / LAN
+      ASSISTANT_PROVIDER: local        # the AI helper uses Ollama, never a cloud API
+      LOCAL_LLM_BASE_URL: http://ollama:11434/v1
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-qwen2.5:7b}
+      MCP_ALLOW_STDIO: ${MCP_ALLOW_STDIO:-false}   # true lets administrators add local "command" MCP servers
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@gmail.com}
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:?Set CREDENTIALS_ENCRYPTION_KEY - generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - firebase-emulator
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BACKEND_API_URL: *api_url
+        NEXT_PUBLIC_APP_URL: *app_url
+        NEXT_PUBLIC_USE_FIREBASE_EMULATOR: "true"
+        NEXT_PUBLIC_FIREBASE_API_KEY: demo-offline-key          # any value works with the emulator
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: localhost
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-flowmind
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: demo-flowmind.appspot.com
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+        NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:offline
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  emulator-data:
+  ollama:

@@ -8,7 +8,10 @@
  * - Output fields: Data available to downstream nodes
  */
 
-export type FieldValueType = 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'password' | 'email' | 'url';
+export type FieldValueType =
+  | 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'password' | 'email' | 'url'
+  // rendered by components/workflows/fields/ConnectionFields.tsx
+  | 'schedule' | 'localModel' | 'mcpServer' | 'mcpServers' | 'mcpTool' | 'mcpArgs';
 export type OutputFieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'date' | 'json';
 
 export interface NodeField {
@@ -97,20 +100,10 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
     fields: [
       {
         name: 'cron',
-        label: 'Frequency',
-        type: 'select',
-        description: 'How often to run this workflow (sets cron expression)',
+        label: 'When should it run?',
+        type: 'schedule',
+        description: 'Pick how often — no technical syntax needed',
         required: true,
-        options: [
-          { label: 'Every minute', value: '* * * * *' },
-          { label: 'Every 5 minutes', value: '*/5 * * * *' },
-          { label: 'Every 15 minutes', value: '*/15 * * * *' },
-          { label: 'Every hour', value: '0 * * * *' },
-          { label: 'Daily (9am)', value: '0 9 * * *' },
-          { label: 'Daily (6pm)', value: '0 18 * * *' },
-          { label: 'Weekly (Monday 9am)', value: '0 9 * * 1' },
-          { label: 'Monthly (1st at 9am)', value: '0 9 1 * *' },
-        ],
         group: 'Schedule',
       },
       {
@@ -121,6 +114,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         required: true,
         options: [
           { label: 'UTC', value: 'UTC' },
+          { label: 'PKT (Pakistan)', value: 'Asia/Karachi' },
+          { label: 'GST (Dubai)', value: 'Asia/Dubai' },
           { label: 'EST (Eastern)', value: 'America/New_York' },
           { label: 'CST (Central)', value: 'America/Chicago' },
           { label: 'MST (Mountain)', value: 'America/Denver' },
@@ -1879,6 +1874,13 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         description: 'Allow this AI node to call workflow tools (database tools, etc.). Turn off to force direct response from provided prompt data.',
         group: 'Settings',
       },
+      {
+        name: 'mcp_servers',
+        label: 'Connected tools (MCP)',
+        type: 'mcpServers',
+        description: 'Let the AI use tools from your connected MCP servers (web, files, apps…).',
+        group: 'Tools',
+      },
     ],
     outputs: {
       main: {
@@ -2092,9 +2094,8 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
       {
         name: 'model',
         label: 'Model',
-        type: 'text',
-        placeholder: 'llama3.2',
-        description: 'Model name as pulled on the server (e.g. `ollama pull llama3.2`). Blank = server default.',
+        type: 'localModel',
+        description: 'Models installed on your Ollama server. Install more with `ollama pull <name>`.',
         required: false,
         group: 'Model',
       },
@@ -2143,6 +2144,13 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
         halfWidth: true,
         group: 'Settings',
       },
+      {
+        name: 'mcp_servers',
+        label: 'Connected tools (MCP)',
+        type: 'mcpServers',
+        description: 'Let the model use tools from your connected MCP servers. Needs a model with tool support (qwen2.5, qwen3, llama3.1…).',
+        group: 'Tools',
+      },
     ],
     outputs: {
       main: {
@@ -2154,6 +2162,29 @@ export const NODE_DEFINITIONS: Record<string, NodeDefinition> = {
           { name: 'tokens_used', path: ['tokens_used'], type: 'number', description: 'Total tokens used' },
           { name: 'prompt_tokens', path: ['prompt_tokens'], type: 'number', description: 'Input tokens' },
           { name: 'completion_tokens', path: ['completion_tokens'], type: 'number', description: 'Output tokens' },
+        ],
+      },
+    },
+  },
+
+  MCPTool: {
+    type: 'MCPTool',
+    name: 'MCP Tool',
+    description: 'Use a tool from a connected MCP server — web fetch, files, apps — without writing code.',
+    category: 'Integrations',
+    fields: [
+      { name: 'server', label: 'Tool server', type: 'mcpServer', description: 'Add servers on the Connections page.', required: true, group: 'Tool' },
+      { name: 'tool', label: 'What should it do?', type: 'mcpTool', description: 'The server tells us what it can do.', required: true, group: 'Tool' },
+      { name: 'arguments', label: 'Inputs', type: 'mcpArgs', description: 'Fill in what the tool needs. You can use values from earlier steps with {{…}}.', group: 'Tool' },
+    ],
+    outputs: {
+      main: {
+        type: 'main',
+        displayName: 'Main Output',
+        fields: [
+          { name: 'result', path: ['result'], type: 'string', description: 'The tool result as text' },
+          { name: 'data', path: ['data'], type: 'object', description: 'Structured result, when the tool returns JSON' },
+          { name: 'tool', path: ['tool'], type: 'string', description: 'Name of the tool that ran' },
         ],
       },
     },

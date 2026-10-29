@@ -41,6 +41,7 @@ import { getNodeByType } from '@/lib/workflow/NodeRegistry';
 import { getNodeDefinitionByType } from '@/lib/workflow/NodeDefinitions';
 import VariableReferencePicker from './VariableReferencePicker';
 import CredentialPicker from './CredentialPicker';
+import { LocalModelField, McpArgsField, McpServerField, McpServersField, McpToolField, SchedulePicker } from './fields/ConnectionFields';
 import apiClient from '@/lib/api/client';
 
 interface NodeConfigModalProps {
@@ -189,6 +190,21 @@ export default function NodeConfigModal({
     };
     
     switch (type) {
+      // Beginner-friendly fields (see components/workflows/fields/ConnectionFields.tsx)
+      case 'schedule':
+        return <SchedulePicker value={value} onChange={onChange} />;
+      case 'localModel':
+        return <LocalModelField value={value} onChange={onChange} baseUrl={config.base_url} />;
+      case 'mcpServers':
+        return <McpServersField value={value} onChange={onChange} />;
+      case 'mcpServer':   // changing the server invalidates the tool and its inputs
+        return <McpServerField value={value} onChange={(v) => setConfig((prev) => ({ ...prev, server: v, tool: '', arguments: {}, argTypes: {} }))} />;
+      case 'mcpTool':
+        return <McpToolField server={config.server} value={value} onChange={(v) => setConfig((prev) => ({ ...prev, tool: v, arguments: {}, argTypes: {} }))} />;
+      case 'mcpArgs':
+        return <McpArgsField server={config.server} tool={config.tool} value={value}
+          onChange={(args, types) => setConfig((prev) => ({ ...prev, arguments: args, argTypes: types }))} />;
+
       case 'text':
       case 'email':
       case 'url':

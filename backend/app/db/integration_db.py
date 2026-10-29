@@ -1,6 +1,8 @@
 import logging
 from typing import Optional, Dict, Any, List
 from firebase_admin import firestore
+
+from app.db.sorting import sort_desc
 from datetime import datetime, timedelta
 import secrets
 import hashlib
@@ -66,17 +68,13 @@ class IntegrationDB:
             if auth_type:
                 query = query.where('authType', '==', auth_type)
             
-            query = query.order_by('popularity', direction=firestore.Query.DESCENDING)
-            
-            all_integrations = list(query.stream())
+            # Sorted in Python: filter + order_by in Firestore would need a composite index (app/db/sorting.py)
+            all_integrations = sort_desc((doc.to_dict() for doc in query.stream()), 'popularity')
             total = len(all_integrations)
-            
+
             # Pagination
             start_index = (page - 1) * page_size
-            end_index = start_index + page_size
-            paginated = all_integrations[start_index:end_index]
-            
-            integrations = [doc.to_dict() for doc in paginated]
+            integrations = all_integrations[start_index:start_index + page_size]
             
             return {
                 'success': True,
@@ -152,12 +150,8 @@ class IntegrationDB:
     async def get_popular_integrations(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get most popular integrations"""
         try:
-            docs = (self.db.collection(self.integrations_collection)
-                   .where('isActive', '==', True)
-                   .order_by('popularity', direction=firestore.Query.DESCENDING)
-                   .limit(limit)
-                   .stream())
-            return [doc.to_dict() for doc in docs]
+            docs = self.db.collection(self.integrations_collection).where('isActive', '==', True).stream()
+            return sort_desc((doc.to_dict() for doc in docs), 'popularity')[:limit]
         except Exception as e:
             logger.error(f"❌ Failed to get popular integrations: {str(e)}")
             return []

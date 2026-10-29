@@ -20,6 +20,7 @@ import logging
 import time
 import uuid
 from app.api.v1.credentials import load_user_credentials_sync
+from app.api.v1.mcp import load_user_mcp_servers_sync
 from app.core.auth_dependency import get_current_user as get_full_user, is_admin, require_permission
 
 # Ensure backend/ is in sys.path so that nodes.* and executor.* are importable
@@ -184,6 +185,11 @@ def _ensure_enabled(workflow: Dict[str, Any]) -> None:
         )
 
 
+def _uses_mcp(workflow: Dict[str, Any]) -> bool:
+    """True if any node needs the user's MCP servers (the MCP Tool node, or an AI node with MCP tools)."""
+    return any(n.get("type") == "MCPTool" or (n.get("config") or {}).get("mcp_servers") for n in workflow.get("nodes", []))
+
+
 def _log_dict(log) -> Dict[str, Any]:
     """NodeLog → the camelCase shape stored in Firestore and returned to the frontend."""
     return {
@@ -277,6 +283,11 @@ async def run_and_record(
 
     context.set_log_listener(_progress)
     context.retry_attempts = limits["retryAttempts"]
+    if _uses_mcp(workflow):
+        try:
+            context.mcp_servers = await asyncio.to_thread(load_user_mcp_servers_sync, user_id)
+        except Exception as exc:  # nodes will report "server not connected" with a clear message
+            logger.warning("Could not load MCP servers for %s: %s", user_id, exc)
     timeout_s = limits["defaultExecutionTimeout"]
     try:
         result = await asyncio.wait_for(

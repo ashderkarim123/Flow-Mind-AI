@@ -46,8 +46,9 @@ def rate_limit(requests_per_minute: int = 60, window_minutes: int = 1):
                 logger.warning("Rate limit decorator: Request object not found")
                 return await func(*args, **kwargs)
             
-            # Get client identifier
-            client_id = get_client_identifier(request)
+            # One counter per client AND endpoint - a shared counter let ten calls to anything exhaust
+            # the limit of every other endpoint (e.g. AI compare's 10/min)
+            client_id = f"{get_client_identifier(request)}:{func.__module__}.{func.__qualname__}"
             current_time = time.time()
             window_seconds = window_minutes * 60
             

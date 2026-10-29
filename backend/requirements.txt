@@ -27,3 +27,6 @@ asyncpg
 motor
 pinecone
 psutil
+
+# MCP (Model Context Protocol) client — pinned: the SDK changed its API between majors
+mcp==2.3.0

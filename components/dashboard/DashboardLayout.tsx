@@ -25,6 +25,7 @@ const sidebarItems = [
   { name: "Executions", iconSrc: "/assets/dashboard/dasboard.svg", href: "/executions" },
   { name: "Analytics", iconSrc: "/assets/dashboard/dasboard.svg", href: "/analytics" },
   { name: "AI Studio", iconSrc: "/assets/dashboard/workflow.svg", href: "/ai" },
+  { name: "Connections", iconSrc: "/assets/dashboard/token.svg", href: "/connections" },
   { name: "Credentials", iconSrc: "/assets/dashboard/token.svg", href: "/credentials" },
   { name: "Marketplace", iconSrc: "/assets/dashboard/marketPlace.svg", href: "/marketplace" },
   { name: "Profile", iconSrc: "/assets/dashboard/profile.svg", href: "/profile" },

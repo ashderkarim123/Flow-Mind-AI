@@ -112,13 +112,16 @@ class WorkflowScheduler:
                 logger.warning(f"Job {job_id} not found in jobs dict when trying to stop")
 
             task = self.running_tasks.pop(job_id, None)
-            if task:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                logger.info(f"Stopped scheduler for job {job_id}")
+
+        # Cancel and wait OUTSIDE the lock: the cancelled loop's `finally` takes the same lock, so
+        # awaiting it while holding the lock deadlocked (Stop hung forever and blocked every later start)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            logger.info(f"Stopped scheduler for job {job_id}")
     
     async def _scheduler_loop(self, job_id: str):
         """Main scheduler loop for a job"""

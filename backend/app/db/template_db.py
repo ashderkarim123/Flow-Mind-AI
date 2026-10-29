@@ -3,6 +3,8 @@ from typing import Optional, Dict, Any, List
 from firebase_admin import firestore
 from datetime import datetime
 
+from app.db.sorting import sort_desc
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +35,9 @@ class TemplateDB:
             template_ref.set(template_data)
             
             logger.info(f"✅ Template created: {template_id}")
-            return {'success': True, 'templateId': template_id, 'data': template_data}
+            # Hand back the stored document: template_data still holds the SERVER_TIMESTAMP placeholder,
+            # which is not a datetime and made the API answer 500 for a template that had been saved.
+            return {'success': True, 'templateId': template_id, 'data': template_ref.get().to_dict()}
             
         except Exception as e:
             logger.error(f"❌ Failed to create template: {str(e)}")
@@ -111,17 +115,8 @@ class TemplateDB:
             if tags and len(tags) > 0:
                 query_ref = query_ref.where('tags', 'array_contains', tags[0])
             
-            # Apply sorting
-            if sort_by == 'popular':
-                query_ref = query_ref.order_by('usageCount', direction=firestore.Query.DESCENDING)
-            elif sort_by == 'newest':
-                query_ref = query_ref.order_by('createdAt', direction=firestore.Query.DESCENDING)
-            elif sort_by == 'rating':
-                query_ref = query_ref.order_by('rating', direction=firestore.Query.DESCENDING)
-            elif sort_by == 'most_used':
-                query_ref = query_ref.order_by('usageCount', direction=firestore.Query.DESCENDING)
-            
-            # Get all matching documents
+            # Ordering happens below in Python: filtering on isActive AND ordering in Firestore would
+            # need a composite index nobody created (see app/db/sorting.py).
             all_templates = list(query_ref.stream())
             
             # Filter by text query if provided (client-side filtering)
@@ -147,14 +142,13 @@ class TemplateDB:
                 all_templates = filtered_templates
             
             total = len(all_templates)
-            
+
+            sort_field = {'newest': 'createdAt', 'rating': 'rating'}.get(sort_by, 'usageCount')   # popular / most_used
+            ordered = sort_desc((doc.to_dict() for doc in all_templates), sort_field)
+
             # Apply pagination
             start_index = (page - 1) * page_size
-            end_index = start_index + page_size
-            paginated_templates = all_templates[start_index:end_index]
-            
-            # Convert to dicts
-            templates = [doc.to_dict() for doc in paginated_templates]
+            templates = ordered[start_index:start_index + page_size]
             
             logger.info(f"✅ Found {total} templates")
             return {
@@ -177,17 +171,10 @@ class TemplateDB:
     async def get_featured_templates(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get featured templates"""
         try:
-            templates = []
             query_ref = (self.db.collection(self.templates_collection)
                         .where('isActive', '==', True)
-                        .where('isFeatured', '==', True)
-                        .order_by('rating', direction=firestore.Query.DESCENDING)
-                        .limit(limit))
-            
-            for doc in query_ref.stream():
-                templates.append(doc.to_dict())
-            
-            return templates
+                        .where('isFeatured', '==', True))
+            return sort_desc((doc.to_dict() for doc in query_ref.stream()), 'rating')[:limit]
             
         except Exception as e:
             logger.error(f"❌ Failed to get featured templates: {str(e)}")
@@ -196,15 +183,8 @@ class TemplateDB:
     async def get_user_templates(self, author_id: str) -> List[Dict[str, Any]]:
         """Get all templates created by a user"""
         try:
-            templates = []
-            query_ref = (self.db.collection(self.templates_collection)
-                        .where('authorId', '==', author_id)
-                        .order_by('createdAt', direction=firestore.Query.DESCENDING))
-            
-            for doc in query_ref.stream():
-                templates.append(doc.to_dict())
-            
-            return templates
+            query_ref = self.db.collection(self.templates_collection).where('authorId', '==', author_id)
+            return sort_desc((doc.to_dict() for doc in query_ref.stream()), 'createdAt')
             
         except Exception as e:
             logger.error(f"❌ Failed to get user templates: {str(e)}")

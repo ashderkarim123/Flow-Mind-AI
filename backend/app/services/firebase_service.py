@@ -1,4 +1,7 @@
+import os
+
 import firebase_admin
+import google.auth.credentials
 from firebase_admin import credentials, auth, firestore
 from app.core.config import get_firebase_credentials, settings
 import logging
@@ -6,6 +9,18 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+def emulator_mode() -> bool:
+    """True when the operator pointed the backend at the local Firebase emulators (fully offline install)."""
+    return bool(os.getenv("FIRESTORE_EMULATOR_HOST") or os.getenv("FIREBASE_AUTH_EMULATOR_HOST"))
+
+
+class _AnonymousCredential(credentials.Base):
+    """The emulators accept any caller, so no service-account key is needed (or wanted) in that mode."""
+
+    def get_credential(self):
+        return google.auth.credentials.AnonymousCredentials()
+
 
 class FirebaseService:
     def __init__(self):
@@ -17,17 +32,23 @@ class FirebaseService:
         """Initialize Firebase Admin SDK"""
         try:
             if not firebase_admin._apps:
-                # Get credentials from environment
-                firebase_creds = get_firebase_credentials()
-                cred = credentials.Certificate(firebase_creds)
-                
                 # Initialize app with storage bucket if available
                 firebase_options = {}
                 if hasattr(settings, 'FIREBASE_STORAGE_BUCKET') and settings.FIREBASE_STORAGE_BUCKET:
                     firebase_options['storageBucket'] = settings.FIREBASE_STORAGE_BUCKET
-                
-                self.app = firebase_admin.initialize_app(cred, firebase_options)
-                logger.info("Firebase Admin SDK initialized successfully")
+
+                if emulator_mode():
+                    firebase_options['projectId'] = settings.FIREBASE_PROJECT_ID
+                    self.app = firebase_admin.initialize_app(_AnonymousCredential(), firebase_options)
+                    logger.warning(
+                        "Firebase is running against the LOCAL EMULATORS (offline mode): Firestore=%s Auth=%s. "
+                        "Unset FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST to use real Firebase.",
+                        os.getenv("FIRESTORE_EMULATOR_HOST"), os.getenv("FIREBASE_AUTH_EMULATOR_HOST"),
+                    )
+                else:
+                    cred = credentials.Certificate(get_firebase_credentials())
+                    self.app = firebase_admin.initialize_app(cred, firebase_options)
+                    logger.info("Firebase Admin SDK initialized successfully")
             else:
                 self.app = firebase_admin.get_app()
                 logger.info("Using existing Firebase Admin SDK instance")
@@ -60,8 +81,13 @@ class FirebaseService:
                     email_verified=False
                 )
             except auth.EmailAlreadyExistsError:
+                # The web app creates the Firebase account itself and then calls this to add the profile,
+                # so an existing auth user is fine - but only until its profile exists. Otherwise anyone
+                # could re-"sign up" a victim's e-mail and reset their plan, usage and 2FA flag.
                 user_record = auth.get_user_by_email(email)
-            
+                if self.db.collection('users').document(user_record.uid).get().exists:
+                    return {'success': False, 'error': 'An account with this email already exists'}
+
             # Create comprehensive user document in Firestore
             user_data = {
                 'uid': user_record.uid,

@@ -53,8 +53,8 @@ def _resolve(data):
 
 
 class DocRef:
-    def __init__(self, store, doc_id):
-        self.store, self.id = store, doc_id
+    def __init__(self, store, doc_id, db=None, path=""):
+        self.store, self.id, self.db, self.path = store, doc_id, db, path
 
     def set(self, data, merge=False):
         data = _resolve(data)
@@ -75,23 +75,23 @@ class DocRef:
     def delete(self):
         self.store.pop(self.id, None)
 
-    def collection(self, name):  # subcollections (users/{uid}/credentials) — always empty here
-        return Collection({})
+    def collection(self, name):  # sub-collection, e.g. users/{uid}/mcp_servers
+        return self.db.collection(f"{self.path}/{self.id}/{name}")
 
 
 class Collection:
-    def __init__(self, store, filters=()):
-        self.store, self.filters = store, filters
+    def __init__(self, store, filters=(), db=None, path=""):
+        self.store, self.filters, self.db, self.path = store, filters, db, path
 
     def document(self, doc_id=None):
-        return DocRef(self.store, doc_id or uuid.uuid4().hex)
+        return DocRef(self.store, doc_id or uuid.uuid4().hex, self.db, self.path)
 
     OPS = {"==": lambda a, b: a == b, ">=": lambda a, b: a is not None and a >= b,
            "<=": lambda a, b: a is not None and a <= b}
 
     def where(self, field, op, value):
         assert op in self.OPS, f"fake Firestore does not support {op}"
-        return Collection(self.store, self.filters + ((field, op, value),))
+        return Collection(self.store, self.filters + ((field, op, value),), self.db, self.path)
 
     def stream(self):
         return [Doc(i, d) for i, d in list(self.store.items())
@@ -103,7 +103,7 @@ class FakeDB:
         self.data = {}
 
     def collection(self, name):
-        return Collection(self.data.setdefault(name, {}))
+        return Collection(self.data.setdefault(name, {}), (), self, name)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,9 @@ def env(monkeypatch):
     monkeypatch.setattr(wf_api, "load_user_credentials_sync", lambda uid: {})
     monkeypatch.setattr(analytics_db, "db", db)
     import app.api.v1.admin as admin_api
+    import app.api.v1.mcp as mcp_api
     monkeypatch.setattr(admin_api, "firebase_service", fake_fb)
+    monkeypatch.setattr(mcp_api, "firebase_service", fake_fb)
     monkeypatch.setattr(admin_api.audit_service, "log_event", _async_noop)
 
     class Env:

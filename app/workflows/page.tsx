@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { useBackendAuth } from '@/lib/contexts/BackendAuthContext';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { Workflow, Plus, Trash2, Edit, Clock, Share, ShoppingBag, Store, AlertTriangle } from 'lucide-react';
+import { Workflow, Plus, Trash2, Edit, Clock, Share, ShoppingBag, Store, AlertTriangle, Sparkles } from 'lucide-react';
+import { CreateWithAI } from '@/components/workflows/CreateWithAI';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,6 +35,7 @@ export default function WorkflowsPage() {
   const [purchasesLoading, setPurchasesLoading] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<string | null>(null);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
   const {
     data: workflowsResponse,
@@ -109,6 +111,7 @@ export default function WorkflowsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+        <CreateWithAI open={aiDialogOpen} onOpenChange={setAiDialogOpen} />
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -123,10 +126,14 @@ export default function WorkflowsPage() {
                   Templates
                 </Button>
               </Link>
+              <Button onClick={() => setAiDialogOpen(true)} className="bg-gradient-to-r from-violet-600 to-[#1D4ED8] hover:opacity-90 text-white px-5">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Create with AI
+              </Button>
               <Link href="/workflows/new">
-                <Button className="bg-[#1D4ED8] hover:bg-[#1E40AF] text-white px-6">
+                <Button variant="outline" className="border-white/10 text-white/70 hover:bg-white/5 hover:text-white px-5">
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Workflow
+                  Build manually
                 </Button>
               </Link>
             </div>
@@ -214,7 +221,7 @@ export default function WorkflowsPage() {
                           Updated {formatDistanceToNow(new Date(workflow.updatedAt), { addSuffix: true })}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Link href={`/workflows/editor?id=${workflow.id}`} className="flex-1">
+                          <Link href={`/workflows/new?id=${workflow.id}`} className="flex-1">
                             <button className="w-full px-3 py-2 text-sm rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 inline-flex items-center justify-center gap-1.5 transition-colors">
                               <Edit className="w-4 h-4" /> Edit
                             </button>
@@ -246,11 +253,16 @@ export default function WorkflowsPage() {
                 <p className="text-white/60 text-lg mb-8 max-w-md mx-auto">
                   Create your first intelligent workflow to automate tasks and streamline your business processes.
                 </p>
-                <Link href="/workflows/new">
-                  <Button className="bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 text-white px-8 py-3">
-                    <Plus className="w-5 h-5 mr-2" />Get Started Now
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button onClick={() => setAiDialogOpen(true)} className="bg-gradient-to-r from-violet-600 to-[#1D4ED8] hover:opacity-90 text-white px-8 py-3">
+                    <Sparkles className="w-5 h-5 mr-2" />Describe it, AI builds it
                   </Button>
-                </Link>
+                  <Link href="/workflows/new">
+                    <Button variant="outline" className="border-white/10 text-white/70 hover:bg-white/5 hover:text-white px-8 py-3">
+                      <Plus className="w-5 h-5 mr-2" />Start from scratch
+                    </Button>
+                  </Link>
+                </div>
               </div>
             )}
           </>

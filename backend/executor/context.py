@@ -59,6 +59,9 @@ class ExecutionContext(BaseModel):
     # Error handling: how many times a failed node is retried (workspace setting)
     retry_attempts: int = 0
 
+    # The user's connected MCP servers by name (ai.mcp.remote.McpServer), loaded when a run starts
+    mcp_servers: Dict[str, Any] = Field(default_factory=dict)
+
     # Private attributes (not part of Pydantic model fields)
     # Database clients — registered by the API layer
     # Keyed by database type: "postgres", "mongodb", "pinecone"

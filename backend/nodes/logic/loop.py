@@ -8,6 +8,7 @@ one at a time.
 """
 
 from __future__ import annotations
+import json
 from typing import Any, Dict, List
 from nodes.base import BaseNode, NodeDefinition, NodeParameter, NodeOutputField, ParameterType, NodeExecutionError
 
@@ -79,6 +80,17 @@ class Loop(BaseNode):
                 "No items to iterate. Set 'items' config or 'items_path'.",
                 self.definition.type,
             )
+
+        if isinstance(items, str):
+            # Typed into the editor: a JSON array (["a", "b"]) or one item per line
+            try:
+                parsed = json.loads(items)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list):
+                items = parsed
+            elif "\n" in items.strip():
+                items = [line.strip() for line in items.splitlines() if line.strip()]
 
         if not isinstance(items, list):
             # Wrap scalar in list

@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv(_backend_dir / ".env")
 
 from fastapi import FastAPI, HTTPException
+from fastapi.routing import APIRoute
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -32,6 +34,7 @@ from app.api.v1.users import router as users_router          # FlowMind AI: Modu
 from app.api.v1.team import router as team_router            # FlowMind AI: Team API
 from app.api.v1.ai import router as ai_router                # Comparative AI responses
 from app.api.v1.admin import router as admin_router          # Administration module
+from app.api.v1.mcp import router as mcp_router              # MCP server connections
 from app.api.routes.billing import router as billing_router
 import logging
 import uvicorn
@@ -79,11 +82,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add trusted host middleware for security
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=["localhost", "127.0.0.1", "*.flowmindai.com", "*.railway.app", "*.up.railway.app", "*.onrender.com"]
-)
+# Add trusted host middleware for security.
+# A self-hosted install reached by IP / LAN name sets ALLOWED_HOSTS (comma-separated; "*" = any host).
+_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()] or [
+    "localhost", "127.0.0.1", "*.flowmindai.com", "*.railway.app", "*.up.railway.app", "*.onrender.com",
+]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts)
 
 
 # Global exception handler
@@ -152,7 +156,22 @@ app.include_router(users_router, prefix=f"/api/{settings.API_VERSION}")   # Modu
 app.include_router(team_router, prefix=f"/api/{settings.API_VERSION}")    # FlowMind AI: Team API
 app.include_router(ai_router, prefix=f"/api/{settings.API_VERSION}")
 app.include_router(admin_router, prefix=f"/api/{settings.API_VERSION}")
+app.include_router(mcp_router, prefix=f"/api/{settings.API_VERSION}")
 app.include_router(billing_router)
+
+
+def _static_paths_first(router) -> None:
+    """Static paths must match before "/{id}" ones - otherwise /notifications/stats is read as
+    notification id "stats" (same for integrations, marketplace, ...). Recurses into included routers
+    (FastAPI >= 0.16x keeps those lazily, older versions already flattened them into this list)."""
+    router.routes.sort(key=lambda r: isinstance(r, APIRoute) and "{" in r.path)
+    for route in router.routes:
+        child = getattr(route, "original_router", None)
+        if child is not None:
+            _static_paths_first(child)
+
+
+_static_paths_first(app.router)
 
 
 # Background task for scheduled backups

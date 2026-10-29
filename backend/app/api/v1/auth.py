@@ -838,19 +838,15 @@ async def get_mfa_status(current_user: Dict[str, Any] = Depends(get_current_user
 
 # ── Admin: user role management ───────────────────────────────────────────────
 
-ADMIN_EMAIL = "admin@gmail.com"
-
-from app.core.auth_dependency import ROLES as _ROLES
+from app.core.auth_dependency import ROLES as _ROLES, get_current_user as _get_current_user, is_admin as _is_admin
 _VALID_ROLES = set(_ROLES)  # one role list for the whole app (core.auth_dependency)
 
 
-async def _require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Dependency: verifies caller is the platform admin."""
-    token = credentials.credentials
-    decoded = await firebase_service.verify_token(token)
-    if not decoded or decoded.get("email") != ADMIN_EMAIL:
+async def _require_admin(current_user: dict = Depends(_get_current_user)) -> dict:
+    """Dependency: same admin rule as every other admin route (role, claim or ADMIN_EMAILS)."""
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
-    return decoded
+    return current_user
 
 
 class RoleUpdateRequest(SuccessResponse):

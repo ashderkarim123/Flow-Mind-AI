@@ -244,6 +244,15 @@ export const HARDCODED_NODES: NodeDef[] = [
     isStartNode: false,
   },
   {
+    id: "mcptool",
+    name: "MCP Tool",
+    type: "MCPTool",
+    category: "AI/ML",
+    description: "Use a tool from a connected MCP server (web, files, apps)",
+    icon: "🧩",
+    isStartNode: false,
+  },
+  {
     id: "localllm",
     name: "Local LLM (Ollama)",
     type: "LocalLLM",

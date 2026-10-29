@@ -16,6 +16,7 @@ import {
   Clock,
   User
 } from "lucide-react";
+import { aiToolsApi } from "@/lib/api/aiTools";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -235,31 +236,15 @@ export function WorkflowAssistant({
     try {
       const parentState = getCurrentCanvasState ? getCurrentCanvasState() : null;
       
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: userMessage,
-          session_id: sessionIdRef.current,
-          current_state: parentState
-        })
+      // Answered by the backend: it knows the real node catalog and uses whichever model the operator
+      // configured (a local Ollama model works fully offline). apiClient rejects with { message }.
+      const data = await aiToolsApi.assist(userMessage, parentState).catch((e: any) => {
+        throw new Error(e?.message || 'Failed to get response');
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
       // Clean up markdown formatting in the response
       const answer = data.answer || "I couldn't generate a response. Please try again.";
-      return { 
-        answer: cleanMarkdownFormatting(answer),
-        workflow_action: data.workflow_action,
-        sources: data.sources
-      };
+      return { answer: cleanMarkdownFormatting(answer), workflow_action: undefined, sources: [] };
     } catch (error) {
       console.error('Chatbot API error:', error);
       throw error;
