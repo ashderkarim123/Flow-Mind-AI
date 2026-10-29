@@ -286,37 +286,19 @@ SMTP_PASS=your-app-password`;
             </div>
           </Link>
 
-          <Link href="/docs/api" className="group">
+          <Link href="/docs/user-guide" className="group">
             <div className="glass-card p-6 rounded-lg h-full hover:shadow-lg hover:shadow-[#1D4ED8]/20 transition-all duration-300">
               <div className="flex items-center gap-3 mb-3">
                 <Code className="w-6 h-6 text-[#1D4ED8]" />
                 <h3 className="font-semibold text-white group-hover:text-[#1D4ED8] transition-colors">
-                  API Reference
+                  User Guide
                 </h3>
               </div>
               <p className="text-white/70 text-sm mb-4">
-                Complete API documentation with TypeScript definitions, examples, and interactive playground.
+                Step-by-step help for building, running and monitoring workflows without writing code.
               </p>
               <div className="flex items-center text-[#1D4ED8] text-sm">
-                <span>View API docs</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/docs/examples" className="group">
-            <div className="glass-card p-6 rounded-lg h-full hover:shadow-lg hover:shadow-[#1D4ED8]/20 transition-all duration-300">
-              <div className="flex items-center gap-3 mb-3">
-                <BookOpen className="w-6 h-6 text-[#1D4ED8]" />
-                <h3 className="font-semibold text-white group-hover:text-[#1D4ED8] transition-colors">
-                  Examples
-                </h3>
-              </div>
-              <p className="text-white/70 text-sm mb-4">
-                Real-world examples including customer onboarding, data processing, and AI integration patterns.
-              </p>
-              <div className="flex items-center text-[#1D4ED8] text-sm">
-                <span>Browse examples</span>
+                <span>Read the guide</span>
                 <ArrowRight className="w-4 h-4 ml-2" />
               </div>
             </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useUserProfile } from '@/lib/useUserProfile';
+import dashboardApiService, { DashboardOverview } from '@/lib/api/dashboard-api';
 import PaymentMethodSelector, { PaymentMethod } from '@/components/marketplace/PaymentMethodSelector';
 import PaymentModal from '@/components/marketplace/PaymentModal';
 import { 
@@ -144,6 +145,9 @@ interface ProfileViewProps {
 export default function ProfileView({ user }: ProfileViewProps) {
   const { profileData, loading, updateProfile, updateSocialLinks, updatePreferences } = useUserProfile();
   const [toasts, setToasts] = useState<Array<{id: string, message: string, type: 'success' | 'error' | 'info'}>>([]);
+  // The user document's usage counters are never written by the engine; real run numbers come from analytics
+  const [runs, setRuns] = useState<DashboardOverview | null>(null);
+  useEffect(() => { dashboardApiService.getDashboardOverview('90d').then(setRuns); }, []);
   
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now().toString();
@@ -228,8 +232,8 @@ export default function ProfileView({ user }: ProfileViewProps) {
     },
     stats: {
       workflowsCreated: profileData?.usage.totalWorkflows || 0,
-      totalExecutions: profileData?.usage.totalExecutions || 0,
-      successRate: profileData?.usage.successRate || 0,
+      totalExecutions: runs?.success ? runs.executions.total : profileData?.usage.totalExecutions || 0,
+      successRate: runs?.success ? Math.round(runs.workflows.success_rate) : profileData?.usage.successRate || 0,
       avgResponseTime: profileData?.usage.avgResponseTime || 0,
       joinedDays: profileData?.memberSince 
         ? Math.floor((new Date().getTime() - profileData.memberSince.getTime()) / (1000 * 60 * 60 * 24))

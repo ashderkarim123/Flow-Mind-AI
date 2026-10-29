@@ -17,6 +17,7 @@ const sidebarItems = [
       { name: "Introduction", href: "/docs/getting-started", icon: BookOpen },
       { name: "Quick Start", href: "/docs/getting-started#quick-start", icon: Zap },
       { name: "Installation", href: "/docs/getting-started#installation", icon: Terminal },
+      { name: "User Guide", href: "/docs/user-guide", icon: BookOpen },
     ]
   },
   {
@@ -25,22 +26,6 @@ const sidebarItems = [
       { name: "JSON Node Engine", href: "/docs/json-node-engine", icon: Workflow },
       { name: "Node Types", href: "/docs/json-node-engine#node-types", icon: GitBranch },
       { name: "Workflows", href: "/docs/json-node-engine#workflows", icon: Layers },
-    ]
-  },
-  {
-    title: "API Reference",
-    items: [
-      { name: "Workflow Engine", href: "/docs/api/workflow-engine", icon: Code },
-      { name: "Node Templates", href: "/docs/api/node-templates", icon: FileText },
-      { name: "JSON Utils", href: "/docs/api/json-utils", icon: Code },
-    ]
-  },
-  {
-    title: "Examples",
-    items: [
-      { name: "Customer Onboarding", href: "/docs/examples/customer-onboarding", icon: FileText },
-      { name: "Data Processing", href: "/docs/examples/data-processing", icon: FileText },
-      { name: "AI Integration", href: "/docs/examples/ai-integration", icon: FileText },
     ]
   }
 ];
@@ -79,7 +64,7 @@ const DocsNavbar = () => {
                 <Zap className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-white">
-                Nex<span className="text-[#1D4ED8]">Agent</span>
+                FlowMind <span className="text-[#1D4ED8]">AI</span>
               </span>
             </motion.div>
           </Link>
@@ -89,11 +74,8 @@ const DocsNavbar = () => {
             <Link href="/docs/getting-started" className="text-white/80 hover:text-white transition-colors">
               Documentation
             </Link>
-            <Link href="/docs/api" className="text-white/80 hover:text-white transition-colors">
-              API Reference
-            </Link>
-            <Link href="/docs/examples" className="text-white/80 hover:text-white transition-colors">
-              Examples
+            <Link href="/docs/user-guide" className="text-white/80 hover:text-white transition-colors">
+              User Guide
             </Link>
             <Link href="/workflows" className="text-white/80 hover:text-white transition-colors">
               Workflows
