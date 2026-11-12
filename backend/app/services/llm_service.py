@@ -4,11 +4,11 @@ The platform's own AI helper (workflow generator + builder assistant).
 Which model it uses is an operator decision, set in the environment — so a fully offline install
 just uses Ollama and never touches a cloud API:
 
-  ASSISTANT_PROVIDER = auto (default) | local | openai | anthropic | groq | gemini | custom
+  ASSISTANT_PROVIDER = auto (default) | local | openai | openrouter | anthropic | groq | gemini | custom
   ASSISTANT_MODEL    overrides the provider's default model
   ASSISTANT_BASE_URL / ASSISTANT_API_KEY   for provider=custom (any OpenAI-compatible API)
 
-`auto` picks the first cloud provider that has an API key (OPENAI_API_KEY, ANTHROPIC_API_KEY,
+`auto` picks the first cloud provider that has an API key (OPENAI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY,
 GROQ_API_KEY, GEMINI_API_KEY) and otherwise the local Ollama server (LOCAL_LLM_BASE_URL).
 """
 
@@ -41,6 +41,7 @@ class Endpoint:
 
 _CLOUD = {   # provider → (base url, key env var, default model)
     "openai": (os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"), "OPENAI_API_KEY", "gpt-4.1-mini"),
+    "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", "openai/gpt-4.1-mini"),   # any model via one key; override with ASSISTANT_MODEL
     "anthropic": ("https://api.anthropic.com/v1", "ANTHROPIC_API_KEY", "claude-sonnet-5-5"),   # Claude's OpenAI-compatible endpoint
     "groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY", "llama-3.3-70b-versatile"),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "GEMINI_API_KEY", "gemini-2.0-flash"),

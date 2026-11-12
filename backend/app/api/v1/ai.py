@@ -152,7 +152,7 @@ async def ai_status(user: dict = Depends(require_permission("workflow:read"))):
         "assistant": assistant,
         "local": local,
         "cloudKeys": {name: bool(os.getenv(env)) for name, env in
-                      [("openai", "OPENAI_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY"),
+                      [("openai", "OPENAI_API_KEY"), ("openrouter", "OPENROUTER_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY"),
                        ("gemini", "GEMINI_API_KEY"), ("groq", "GROQ_API_KEY")]},
         "mcp": {"stdioEnabled": remote.stdio_allowed()},
     }
