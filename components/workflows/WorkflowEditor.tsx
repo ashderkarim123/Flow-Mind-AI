@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { WorkflowToolbar } from "./WorkflowToolbar";
 import { WorkflowSidebar } from "./WorkflowSidebar";
 import WorkflowCanvas, { WorkflowCanvasRef } from "./WorkflowCanvas";
+import WorkflowVariables from "./WorkflowVariables";
 import { WorkflowAssistant } from "./WorkflowAssistant";
 import ExecutionModal from "./ExecutionModal";
 import { WorkflowWalkthrough } from "./WorkflowWalkthrough";
@@ -57,6 +58,8 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
   const [schedulerStatus, setSchedulerStatus] = useState<{scheduled: boolean; status: string | null}>({scheduled: false, status: null});
   const [outputTab, setOutputTab] = useState<'output' | 'network' | 'chat'>('output');
   const [showExportModal, setShowExportModal] = useState(false);
+  const [workflowVariables, setWorkflowVariables] = useState<Record<string, any>>({});
+  const [showVariables, setShowVariables] = useState(false);
   const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishForm, setPublishForm] = useState({ name: '', description: '', category: 'Automation', plan: 'free' as 'free' | 'paid', price: '' });
@@ -421,6 +424,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
           console.log('✅ Workflow loaded:', workflow);
           setWorkflowName(workflow.name || 'Untitled Workflow');
           setCurrentWorkflowId(workflow.id);
+          setWorkflowVariables(workflow.variables || {});
           
           // Convert workflow nodes to canvas format
           const canvasNodes = workflow.nodes.map((node: any) => ({
@@ -520,6 +524,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
         name: workflowName || 'Untitled Workflow',
         description: 'Workflow saved from editor',
         nodes: workflowNodes,
+        variables: workflowVariables,
         connections: workflowData.connections.map((conn: any) => ({
           id: conn.id,
           sourceNodeId: conn.from,
@@ -549,7 +554,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
       });
 
       await workflowManager.saveWorkflow(workflow);
-      setCurrentWorkflowId(wfId);
+      setCurrentWorkflowId(workflow.id);   // the backend's id; the one we sent is only a placeholder, and keeping it made the next Save or Execute create a second workflow
       console.log('✅ Workflow saved successfully!');
       addToast('Workflow saved successfully!', 'info');
     } catch (e: any) {
@@ -986,6 +991,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
         name: workflowName || 'Untitled Workflow',
         description: 'Workflow created in editor',
         nodes: workflowNodes,
+        variables: workflowVariables,
         connections: workflowData.connections.map((conn: any) => ({
           id: conn.id,
           sourceNodeId: conn.from,
@@ -1495,6 +1501,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
         name: workflowName || 'Untitled Workflow',
         description: 'Workflow created in editor',
         nodes: workflowNodes,
+        variables: workflowVariables,
         connections: workflowData.connections.map((conn: any) => ({
           id: conn.id,
           sourceNodeId: conn.from,
@@ -1615,12 +1622,16 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
           onSave={saveCurrentWorkflow}
           onExport={handleExport}
           onImport={handleImport}
+          onOpenVariables={() => setShowVariables(true)}
+          variableCount={Object.keys(workflowVariables).length}
           onPublish={canPublish ? handlePublish : undefined}
           canPublish={canPublish}
           workflowName={workflowName}
           onRenameWorkflow={setWorkflowName}
         />
         
+        <WorkflowVariables open={showVariables} value={workflowVariables} onSave={setWorkflowVariables} onClose={() => setShowVariables(false)} />
+
         {/* Canvas */}
         <div ref={canvasElementRef} className="flex-1 relative flex flex-col">
           {/* Tabs bar on top-left over canvas */}
@@ -1662,6 +1673,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
                 executingNodeId={activeNodeId}
                 errorNodeIds={errorNodeIds}
                 lastNodeOutputs={lastNodeOutputs}
+                workflowVariables={workflowVariables}
               />
             </div>
 

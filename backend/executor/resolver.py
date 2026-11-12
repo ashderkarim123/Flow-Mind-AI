@@ -6,7 +6,7 @@ Syntax:
     {{$trigger.field}}              → context.trigger_output["field"]
     {{$node.nodeId.field}}          → context.node_outputs["nodeId"]["field"]
     {{$node.nodeId.nested.path}}    → deep dot-notation access
-    {{$vars.varName}}               → context.variables["varName"]
+    {{$vars.varName}}               → context.variables["varName"]; {{$vars.obj.key}} and {{$vars.list.0}} go inside JSON values
     {{$creds.credName}}             → context.user_credentials["credName"] (decrypted)
 """
 
@@ -121,7 +121,17 @@ def _resolve_expression(expr: str, context: "ExecutionContext") -> Any:
         if len(parts) < 2:
             return None
         var_name = ".".join(parts[1:])
-        return context.variables.get(var_name)
+        if var_name in context.variables:          # a variable whose own name contains a dot
+            return context.variables[var_name]
+        value: Any = context.variables              # otherwise follow the path into a JSON variable: {{$vars.limits.max}}
+        for key in parts[1:]:
+            if isinstance(value, dict):
+                value = value.get(key)
+            elif isinstance(value, list) and key.isdigit() and int(key) < len(value):
+                value = value[int(key)]
+            else:
+                return None
+        return value
 
     if prefix == "$creds":
         if len(parts) < 2:

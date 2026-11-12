@@ -11,6 +11,7 @@ import {
   WorkflowCreateRequest,
   WorkflowUpdateRequest 
 } from '../types/workflow';
+import { fromBackendVariables, toBackendVariables } from '@/lib/workflow/variables';
 import { convertSidebarTypeToEngineType, convertEngineTypeToSidebarType } from '@/lib/workflow/engine/nodeTypeMapping';
 
 /**
@@ -89,7 +90,7 @@ export function workflowToCreateRequest(workflow: Workflow): WorkflowCreateReque
     canBeListed: false, // Default to private
     nodes: workflow.nodes.map(frontendNodeToBackend),
     edges: workflow.connections.map(frontendConnectionToBackendEdge),
-    variables: {}, // Can be extended later
+    variables: toBackendVariables(workflow.variables ?? {}),
   };
 }
 
@@ -107,6 +108,7 @@ export function workflowToUpdateRequest(workflow: Partial<Workflow>): WorkflowUp
   if (workflow.connections !== undefined) {
     request.edges = workflow.connections.map(frontendConnectionToBackendEdge);
   }
+  if (workflow.variables !== undefined) request.variables = toBackendVariables(workflow.variables);
   
   return request;
 }
@@ -121,6 +123,7 @@ export function backendWorkflowToFrontend(backendWorkflow: BackendWorkflow): Wor
     description: backendWorkflow.description,
     nodes: backendWorkflow.nodes.map(backendNodeToFrontend),
     connections: backendWorkflow.edges.map(backendEdgeToFrontendConnection),
+    variables: fromBackendVariables(backendWorkflow.variables),
     settings: {
       timeout: 300000,
       retryCount: 3,
@@ -152,6 +155,6 @@ export function prepareWorkflowForBackend(workflow: Workflow): WorkflowCreateReq
     canBeListed: false,
     nodes: workflow.nodes.map(frontendNodeToBackend),
     edges: workflow.connections.map(frontendConnectionToBackendEdge),
-    variables: {},
+    variables: toBackendVariables(workflow.variables ?? {}),
   };
 }

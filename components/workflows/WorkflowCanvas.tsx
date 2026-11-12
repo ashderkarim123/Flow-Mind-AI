@@ -39,6 +39,7 @@ interface WorkflowCanvasProps {
   executingNodeId?: string | null; // externally-controlled active node
   errorNodeIds?: string[]; // nodes to highlight as invalid
   lastNodeOutputs?: Record<string, Record<string, any>>; // nodeId → output from last execution
+  workflowVariables?: Record<string, any>; // the workflow's variables, offered in the node dialog's picker
 }
 
 export interface WorkflowCanvasRef {
@@ -71,7 +72,7 @@ interface Connection {
   condition?: 'true' | 'false'; // For IfCondition branching
 }
 
-const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({ selectedNode, onNodeSelect, onOpenTriggers, onNodeCountChange, executingNodeId: executingNodeIdProp, errorNodeIds: errorNodeIdsProp, lastNodeOutputs }, ref) => {
+const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({ selectedNode, onNodeSelect, onOpenTriggers, onNodeCountChange, executingNodeId: executingNodeIdProp, errorNodeIds: errorNodeIdsProp, lastNodeOutputs, workflowVariables }, ref) => {
   // Canvas ref for precise measurements
   const canvasRef = useRef<HTMLDivElement>(null);
   
@@ -1018,6 +1019,7 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({ sel
 
       {/* Node Configuration Modal */}
       <NodeConfigModal
+        workflowVariables={workflowVariables}
         node={selectedNodeForConfig}
         isOpen={isConfigModalOpen}
         onClose={() => {

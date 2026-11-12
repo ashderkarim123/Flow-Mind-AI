@@ -7,6 +7,7 @@ import {
   Settings,
   Download,
   Upload,
+  Braces,
   Home,
   ChevronDown,
   Bot,
@@ -24,6 +25,8 @@ interface WorkflowToolbarProps {
   onSave?: () => void;
   onExport?: () => void;
   onImport?: () => void;
+  onOpenVariables?: () => void;
+  variableCount?: number;
   onPublish?: () => void;
   canPublish?: boolean;
   isExecuting?: boolean;
@@ -41,6 +44,8 @@ export function WorkflowToolbar({
   onSave,
   onExport,
   onImport,
+  onOpenVariables,
+  variableCount = 0,
   onPublish,
   canPublish = false,
   isExecuting = false,
@@ -82,6 +87,18 @@ export function WorkflowToolbar({
           <Upload className="w-4 h-4" />
           <span className="text-sm">Import</span>
         </Button>
+
+        {onOpenVariables && (
+          <Button
+            onClick={onOpenVariables}
+            variant="ghost"
+            size="sm"
+            className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 px-3 gap-2"
+          >
+            <Braces className="w-4 h-4" />
+            <span className="text-sm">Variables{variableCount > 0 ? ` (${variableCount})` : ''}</span>
+          </Button>
+        )}
 
         <Button
           onClick={onExport}

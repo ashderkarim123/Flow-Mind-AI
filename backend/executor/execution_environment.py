@@ -14,7 +14,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from executor.context import ExecutionContext
+from executor.context import ExecutionContext, plain_variables
 from executor.databases import (
     PostgresClient,
     MongoDBClient,
@@ -81,7 +81,7 @@ class ExecutionEnvironment:
             execution_id=execution_id,
             workflow_id=workflow_id,
             user_id=user_id,
-            variables=variables or {},
+            variables=plain_variables(variables),
             user_credentials=user_credentials or {},
         )
 

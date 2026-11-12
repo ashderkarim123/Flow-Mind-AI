@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Dict
+from urllib.parse import quote
 
 from nodes.base import (
     BaseNode,
@@ -17,6 +18,29 @@ from nodes.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def postgres_connection_string(config: Dict[str, Any]) -> str:
+    """A ready connection URL: the one typed in, else one built from host, port, database, username, password and SSL.
+
+    Returns "" when neither is complete. The password is percent-encoded so characters like @ or / cannot break the URL.
+    """
+    direct = str(config.get("connection_string") or "").strip()
+    if direct:
+        return direct
+    host = str(config.get("host") or "").strip()
+    database = str(config.get("database") or "").strip()
+    username = str(config.get("username") or "").strip()
+    if not (host and database and username):
+        return ""
+    port = str(config.get("port") or "5432").strip()
+    if not port.isdigit():
+        raise NodeExecutionError(f"PostgreSQL port must be a number, not '{port}'.", "PostgresQuery")
+    ssl = str(config.get("ssl_mode") or "prefer").strip().lower()
+    if ssl not in ("disable", "prefer", "require"):
+        raise NodeExecutionError(f"SSL mode must be disable, prefer or require, not '{ssl}'.", "PostgresQuery")
+    password = quote(str(config.get("password") or ""), safe="")
+    return f"postgresql://{quote(username, safe='')}:{password}@{host}:{port}/{quote(database, safe='')}?sslmode={ssl}"
 
 
 class PostgresQuery(BaseNode):
@@ -48,10 +72,29 @@ class PostgresQuery(BaseNode):
                 name="connection_string",
                 display_name="Connection String",
                 type=ParameterType.CREDENTIAL,
-                required=True,
-                description="PostgreSQL connection URL. Format: postgresql://user:password@host:5432/database",
+                required=False,
+                description="PostgreSQL connection URL. Format: postgresql://user:password@host:5432/database. Or fill in the fields below instead.",
                 placeholder="postgresql://user:password@localhost:5432/mydb",
                 is_private=True,
+            ),
+            NodeParameter(name="host", display_name="Host", type=ParameterType.STRING, required=False,
+                          description="Server address, for example db.example.com", placeholder="localhost"),
+            NodeParameter(name="port", display_name="Port", type=ParameterType.NUMBER, required=False, default=5432),
+            NodeParameter(name="database", display_name="Database", type=ParameterType.STRING, required=False),
+            NodeParameter(name="username", display_name="Username", type=ParameterType.STRING, required=False),
+            NodeParameter(name="password", display_name="Password", type=ParameterType.CREDENTIAL, required=False, is_private=True),
+            NodeParameter(
+                name="ssl_mode",
+                display_name="SSL",
+                type=ParameterType.OPTIONS,
+                required=False,
+                default="prefer",
+                description="Use 'require' for cloud databases such as Supabase, Neon or RDS.",
+                options=[
+                    SelectOption(value="prefer", label="Use SSL if the server supports it"),
+                    SelectOption(value="require", label="Always use SSL"),
+                    SelectOption(value="disable", label="No SSL"),
+                ],
             ),
             NodeParameter(
                 name="table",
@@ -172,11 +215,11 @@ class PostgresQuery(BaseNode):
         context: Any,
     ) -> Dict[str, Any]:
         operation = config.get("operation", "select")
-        connection_string = str(config.get("connection_string") or "").strip()
+        connection_string = postgres_connection_string(config)
 
         if not connection_string:
             raise NodeExecutionError(
-                "PostgreSQL connection string is required.",
+                "PostgreSQL connection details are required: a connection string, or host, database and username.",
                 self.definition.type,
             )
 

@@ -282,3 +282,37 @@ def test_admin_template_moderation(env):
     assert admin.patch("/api/v1/admin/templates/tpl1", json={}).status_code == 400
     assert admin.delete("/api/v1/admin/templates/tpl1").status_code == 200
     assert "tpl1" not in env.database.data["workflow_templates"]
+
+
+# ---------------------------------------------------------------------------
+# Workflow variables
+# ---------------------------------------------------------------------------
+
+def test_workflow_variables_are_used_by_a_manual_run(env):
+    env.database.data["workflows"]["vars1"] = {
+        "name": "Vars flow", "userId": "u-user", "variables": {"customer": "Acme", "rows": 25},
+        "nodes": [{"id": "t", "type": "ManualTrigger", "name": "Start", "config": {}},
+                  {"id": "l", "type": "Logger", "name": "Log",
+                   "config": {"level": "info", "message": "Hello {{$vars.customer}}, {{$vars.rows}} rows"}}],
+        "edges": [{"source": "t", "target": "l"}],
+    }
+    run = env.as_("user").post("/api/v1/workflows/vars1/execute", json={}).json()
+    record = env.database.data["executions"][run["summary"]["execution_id"]]
+    assert record["status"] == "completed"
+    assert record["nodeLogs"][1]["output"]["message"] == "Hello Acme, 25 rows"
+
+
+def test_typed_workflow_variables_reach_the_steps_as_plain_values(env):
+    env.database.data["workflows"]["vars2"] = {
+        "name": "Typed vars", "userId": "u-user",
+        "variables": {"customer": {"type": "string", "value": "Acme"}, "rows": {"type": "number", "value": 25},
+                      "limits": {"type": "json", "value": '{"max": 3}'}},
+        "nodes": [{"id": "t", "type": "ManualTrigger", "name": "Start", "config": {}},
+                  {"id": "l", "type": "Logger", "name": "Log",
+                   "config": {"level": "info", "message": "{{$vars.customer}} {{$vars.rows}} {{$vars.limits.max}}"}}],
+        "edges": [{"source": "t", "target": "l"}],
+    }
+    run = env.as_("user").post("/api/v1/workflows/vars2/execute", json={}).json()
+    record = env.database.data["executions"][run["summary"]["execution_id"]]
+    assert record["status"] == "completed"
+    assert record["nodeLogs"][1]["output"]["message"] == "Acme 25 3"

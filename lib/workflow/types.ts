@@ -38,6 +38,8 @@ export interface Workflow {
   description?: string;
   nodes: WorkflowNode[];
   connections: WorkflowConnection[];
+  /** Values every step can read as {{$vars.name}} */
+  variables?: Record<string, any>;
   settings: WorkflowSettings;
   createdAt: string;
   updatedAt: string;

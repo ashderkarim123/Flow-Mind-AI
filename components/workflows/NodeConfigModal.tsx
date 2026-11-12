@@ -42,6 +42,7 @@ import { getNodeDefinitionByType } from '@/lib/workflow/NodeDefinitions';
 import VariableReferencePicker from './VariableReferencePicker';
 import CredentialPicker from './CredentialPicker';
 import NodeSettings from './NodeSettings';
+import { isFieldShown, presetValues } from '@/lib/workflow/fieldRules';
 import { LocalModelField, McpArgsField, McpServerField, McpServersField, McpToolField, SchedulePicker } from './fields/ConnectionFields';
 import apiClient from '@/lib/api/client';
 
@@ -56,6 +57,7 @@ interface NodeConfigModalProps {
   nodes?: any[];
   connections?: any[];
   lastNodeOutputs?: Record<string, Record<string, any>>;
+  workflowVariables?: Record<string, any>;
 }
 
 // Dynamic node categories from API
@@ -87,6 +89,7 @@ export default function NodeConfigModal({
   nodes: providedNodes = [],
   connections: providedConnections = [],
   lastNodeOutputs = {},
+  workflowVariables = {},
 }: NodeConfigModalProps) {
   // State management
   const [config, setConfig] = useState<Record<string, any>>({});
@@ -116,7 +119,8 @@ export default function NodeConfigModal({
     'Pinecone Query',
   ].includes(node.type);
 
-  const getVisibleNodeFields = (fields: any[]) => {
+  const getVisibleNodeFields = (allFields: any[]) => {
+    const fields = Array.isArray(allFields) ? allFields.filter((f) => isFieldShown(f, config)) : allFields;
     const nodeType = node?.type;
     const operation = String(config.operation || '').toLowerCase();
 
@@ -128,21 +132,21 @@ export default function NodeConfigModal({
 
     if (isType(['PostgresQuery', 'PostgreSQL Query', 'Postgres Query'])) {
       const opFields: Record<string, Set<string>> = {
-        select: new Set(['table', 'columns', 'where_clause', 'limit', 'return_mode']),
+        select: new Set(['table', 'columns', 'where_clause', 'order_by', 'limit', 'return_mode']),
         insert: new Set(['table', 'data']),
         update: new Set(['table', 'where_clause', 'data']),
         delete: new Set(['table', 'where_clause']),
         raw: new Set(['raw_sql', 'return_mode']),
       };
-      const always = new Set(['operation', 'connection_string']);
+      const always = new Set(['operation', 'connection_method', 'connection_string', 'host', 'port', 'database', 'username', 'password', 'ssl_mode']);
       const allowed = opFields[operation] || new Set<string>();
       return fields.filter((field) => always.has(field.name) || allowed.has(field.name));
     }
 
     if (isType(['MongoDBQuery', 'MongoDB Query'])) {
       const opFields: Record<string, Set<string>> = {
-        find: new Set(['filter', 'limit', 'skip']),
-        find_one: new Set(['filter']),
+        find: new Set(['filter', 'projection', 'sort', 'limit', 'skip']),
+        find_one: new Set(['filter', 'projection']),
         insert_one: new Set(['document']),
         insert_many: new Set(['document']),
         update_one: new Set(['filter', 'update', 'upsert']),
@@ -1144,6 +1148,37 @@ export default function NodeConfigModal({
             </h3>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {Object.keys(workflowVariables).length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Workflow variables</p>
+                <div className="space-y-1">
+                  {Object.entries(workflowVariables).map(([name, val]) => {
+                    const varPath = `{{$vars.${name}}}`;
+                    return (
+                      <div
+                        key={name}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'copy';
+                          e.dataTransfer.setData('text/plain', varPath);
+                        }}
+                        onClick={() => {
+                          if (variablePickerField) {
+                            setConfig(prev => ({ ...prev, [variablePickerField]: (prev[variablePickerField] || '') + varPath }));
+                            setVariablePickerField('');
+                          }
+                        }}
+                        className="block w-full text-left px-2 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-gray-300 hover:text-white transition-colors cursor-move hover:cursor-grab active:cursor-grabbing"
+                        title="Click or drag to insert"
+                      >
+                        <code className="font-mono text-white">{name}</code>
+                        <div className="mt-0.5 truncate font-mono text-xs text-amber-400/70">= {typeof val === 'string' ? val : JSON.stringify(val)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {workflowData.nodes && workflowData.nodes.length > 0 ? (
               workflowData.nodes.map((n: any) => {
                 // Don't show current node
@@ -1376,26 +1411,48 @@ export default function NodeConfigModal({
                               {field.description}
                             </p>
                           )}
+                          {field.help && (
+                            <p className="mt-1 text-xs leading-4 text-sky-300">
+                              {field.help.text}
+                              {field.help.url && (
+                                <>
+                                  {' '}
+                                  <a href={field.help.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-sky-200">
+                                    {field.help.label || 'Learn more'}
+                                  </a>
+                                </>
+                              )}
+                            </p>
+                          )}
                         </div>
                         <div className="mt-1.5 flex gap-2">
                           {renderDynamicField(
                             field,
                             config[field.name],
-                            (value) => setConfig({...config, [field.name]: value}),
+                            (value) => setConfig({...config, [field.name]: value, ...presetValues(field, String(value))}),
                             field.name
                           )}
                         </div>
                       </div>
                     );
-                    return rows.map((row, rowIdx) =>
-                      row.type === 'pair' ? (
-                        <div key={rowIdx} className="grid grid-cols-2 gap-4">
-                          {row.fields.map(renderFieldBlock)}
+                    let lastGroup = '';
+                    return rows.map((row, rowIdx) => {
+                      const group: string = row.fields[0].group || '';
+                      const heading = group && group !== lastGroup ? (
+                        <h4 className="pt-2 text-xs font-semibold uppercase tracking-wider text-gray-500">{group}</h4>
+                      ) : null;
+                      lastGroup = group || lastGroup;
+                      return (
+                        <div key={rowIdx} className="space-y-3">
+                          {heading}
+                          {row.type === 'pair' ? (
+                            <div className="grid grid-cols-2 gap-4">{row.fields.map(renderFieldBlock)}</div>
+                          ) : (
+                            renderFieldBlock(row.fields[0])
+                          )}
                         </div>
-                      ) : (
-                        renderFieldBlock(row.fields[0])
-                      )
-                    );
+                      );
+                    });
                   })()}
                 </div>
               )}

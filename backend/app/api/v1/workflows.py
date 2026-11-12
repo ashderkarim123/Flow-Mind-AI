@@ -106,7 +106,12 @@ def _extract_databases_config_from_nodes(
 
         # PostgreSQL
         if node_type in {"PostgresQuery", "PostgreSQL Query", "Postgres Query"}:
-            conn = _resolve_credential_ref(cfg.get("connection_string"), user_credentials)
+            from nodes.databases.postgres import postgres_connection_string
+            conn = postgres_connection_string({
+                **cfg,
+                "connection_string": _resolve_credential_ref(cfg.get("connection_string"), user_credentials),
+                "password": _resolve_credential_ref(cfg.get("password"), user_credentials),
+            })
             if isinstance(conn, str) and conn.strip() and "postgres" not in db_config:
                 db_config["postgres"] = {"connection_string": conn.strip()}
 
@@ -954,9 +959,10 @@ async def test_db_connection(
         if node_type in ("PostgresQuery", "PostgreSQL Query", "Postgres Query"):
             from executor.databases.postgres import PostgresClient
 
-            conn = str(cfg.get("connection_string") or "").strip()
+            from nodes.databases.postgres import postgres_connection_string
+            conn = postgres_connection_string(cfg)
             if not conn:
-                raise HTTPException(status_code=400, detail="PostgreSQL connection string is required")
+                raise HTTPException(status_code=400, detail="PostgreSQL connection details are required: a connection string, or host, database and username")
 
             client = PostgresClient(conn)
             await client.connect()

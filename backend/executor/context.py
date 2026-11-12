@@ -7,6 +7,7 @@ and the running execution log.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from pydantic import BaseModel, Field, PrivateAttr
@@ -16,6 +17,32 @@ from nodes.base import NodeLog
 if TYPE_CHECKING:
     from executor.databases.base import DatabaseClient
     from ai.mcp.mcp_client import MCPClient
+
+
+_TYPED_VARIABLE_KEYS = {"type", "value", "secretRef", "secret_ref", "description"}
+
+
+def plain_variables(raw: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Workflow variables as steps read them: {name: value}.
+
+    The API stores them typed ({"type": "number", "value": 25}); plain values pass through unchanged.
+    A json variable holds its value as JSON text and is parsed here; a secret is never copied into a run.
+    """
+    out: Dict[str, Any] = {}
+    for name, item in (raw or {}).items():
+        if isinstance(item, dict) and "type" in item and set(item) <= _TYPED_VARIABLE_KEYS:
+            if item.get("type") == "secret":
+                continue
+            value = item.get("value")
+            if item.get("type") == "json" and isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except ValueError:
+                    pass
+            out[name] = value
+        else:
+            out[name] = item
+    return out
 
 
 class ExecutionContext(BaseModel):
