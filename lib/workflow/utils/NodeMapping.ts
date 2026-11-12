@@ -570,6 +570,9 @@ export const NODE_MAPPINGS: NodeMapping[] = [
  */
 const CANVAS_TYPE_ALIASES: Record<string, string> = {
   // Triggers — these need correct category detection for workflow validation
+  // Backend node names, as saved by the AI workflow generator
+  'ManualTrigger': 'On Clicking Execute',
+  'Manual Trigger': 'On Clicking Execute',
   'Scheduling': 'Schedule',
   'ScheduleEvent': 'Schedule',
   'ScheduleTriggerNode': 'Schedule',
