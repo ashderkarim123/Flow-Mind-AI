@@ -366,6 +366,11 @@ export function getNodeMapping(sidebarType: string | undefined | null): NodeType
     );
   }
   
+  // AI-generated workflows carry the backend's own names (ManualTrigger, VariableSetter, ...)
+  if (!mapping) {
+    mapping = NODE_TYPE_MAPPINGS.find(m => m.engineType.toLowerCase() === sidebarType.toLowerCase());
+  }
+
   return mapping;
 }
 
