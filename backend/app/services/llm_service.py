@@ -7,6 +7,7 @@ just uses Ollama and never touches a cloud API:
   ASSISTANT_PROVIDER = auto (default) | local | openai | openrouter | anthropic | groq | gemini | custom
   ASSISTANT_MODEL    overrides the provider's default model
   ASSISTANT_BASE_URL / ASSISTANT_API_KEY   for provider=custom (any OpenAI-compatible API)
+  ASSISTANT_FALLBACK_BASE_URL / _API_KEY / _MODEL   backup server tried when the main one fails (optional)
 
 `auto` picks the first cloud provider that has an API key (OPENAI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY,
 GROQ_API_KEY, GEMINI_API_KEY) and otherwise the local Ollama server (LOCAL_LLM_BASE_URL).
@@ -90,10 +91,36 @@ def _explain_http_error(ep: Endpoint, status: int, body: str) -> str:
     return f"The AI model returned an error ({status}): {message}"
 
 
-async def chat(messages: List[Dict[str, str]], *, json_mode: bool = False, temperature: float = 0.2,
-               max_tokens: int = 3000, ep: Optional[Endpoint] = None) -> str:
-    """One chat completion → the assistant's text."""
-    ep = ep or endpoint()
+def fallback_endpoint(primary: Optional[Endpoint]) -> Optional[Endpoint]:
+    """Backup OpenAI-compatible server (ASSISTANT_FALLBACK_BASE_URL / _API_KEY / _MODEL), used when the primary fails."""
+    base = os.getenv("ASSISTANT_FALLBACK_BASE_URL", "").strip().rstrip("/")
+    if not base:
+        return None
+    # a router prefix like "openai/gpt-4.1-mini" is usually not valid on another provider
+    model = os.getenv("ASSISTANT_FALLBACK_MODEL", "").strip() or (primary.model.split("/")[-1] if primary else "gpt-4.1-mini")
+    return Endpoint("fallback", base, os.getenv("ASSISTANT_FALLBACK_API_KEY", "none"), model)
+
+
+async def chat(messages: List[Dict[str, str]], *, ep: Optional[Endpoint] = None, **options: Any) -> str:
+    """One chat completion → the assistant's text. Tries the fallback server if the primary one is unavailable."""
+    if ep is not None:   # a caller that picked its own endpoint gets exactly that one
+        return await _chat_once(messages, ep, **options)
+    primary: Optional[Endpoint] = None
+    try:
+        primary = endpoint()
+        return await _chat_once(messages, primary, **options)
+    except LLMUnavailable as primary_error:
+        fallback = fallback_endpoint(primary)
+        if fallback is None:
+            raise
+        try:
+            return await _chat_once(messages, fallback, **options)
+        except LLMUnavailable as fallback_error:
+            raise LLMUnavailable(f"{primary_error} The fallback server failed too: {fallback_error}")
+
+
+async def _chat_once(messages: List[Dict[str, str]], ep: Endpoint, *, json_mode: bool = False, temperature: float = 0.2,
+                     max_tokens: int = 3000) -> str:
     body: Dict[str, Any] = {"model": ep.model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
