@@ -22,6 +22,8 @@ import { workflowService } from '@/lib/api/services/workflowService';
 import { formatDistanceToNow } from 'date-fns';
 import { getAuthToken } from '@/lib/api/client';
 import { marketplaceService, MarketplacePurchase } from '@/lib/api/services/marketplaceService';
+import { workflowManager } from '@/lib/workflow/WorkflowManager';
+import { purchasedToWorkflow } from '@/lib/workflow/purchasedWorkflow';
 
 type Tab = 'mine' | 'purchased';
 
@@ -77,6 +79,20 @@ export default function WorkflowsPage() {
   useEffect(() => {
     if (!authLoading && !backendLoading && isAuthenticated) refetch();
   }, [authLoading, backendLoading, isAuthenticated, refetch]);
+
+  // A purchased workflow only exists as data in the library until it is saved as one of the user's own
+  const [deployingId, setDeployingId] = useState<string | null>(null);
+  const deployPurchase = async (purchase: MarketplacePurchase) => {
+    try {
+      setDeployingId(purchase.id ?? null);
+      const workflow = purchasedToWorkflow(purchase.workflowData, purchase.nexaName);
+      await workflowManager.saveWorkflow(workflow);   // fills in the backend's id
+      router.push(`/workflows/new?id=${workflow.id}`);
+    } catch (e: any) {
+      alert(`Couldn't deploy "${purchase.nexaName}": ${e?.message || 'unknown error'}`);
+      setDeployingId(null);
+    }
+  };
 
   const handleDelete = (workflowId: string) => {
     setWorkflowToDelete(workflowId);
@@ -301,6 +317,13 @@ export default function WorkflowsPage() {
                           Purchased {purchase.purchasedAt?.toDate ? formatDistanceToNow(purchase.purchasedAt.toDate(), { addSuffix: true }) : 'recently'}
                         </div>
                         <button
+                          onClick={() => deployPurchase(purchase)}
+                          disabled={deployingId === purchase.id}
+                          className="w-full mb-2 px-3 py-2 text-sm rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-60 text-white inline-flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          {deployingId === purchase.id ? 'Deploying…' : 'Deploy to my workflows'}
+                        </button>
+                        <button
                           onClick={() => {
                             const json = JSON.stringify(purchase.workflowData);
                             const blob = new Blob([json], { type: 'application/json' });
@@ -311,7 +334,7 @@ export default function WorkflowsPage() {
                             a.click();
                             URL.revokeObjectURL(url);
                           }}
-                          className="w-full px-3 py-2 text-sm rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] text-white inline-flex items-center justify-center gap-1.5 transition-colors"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-white/10 text-white/70 hover:bg-white/5 hover:text-white inline-flex items-center justify-center gap-1.5 transition-colors"
                         >
                           Download Workflow JSON
                         </button>
