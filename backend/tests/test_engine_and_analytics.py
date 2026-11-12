@@ -250,3 +250,73 @@ def test_bottlenecks_flags_failing_and_slow_steps():
     assert result[0]["stepName"] == "HTTPRequest" and result[0]["failureRate"] == 100
     ai = next(b for b in result if b["stepName"] == "Summarise")
     assert ai["percentageOfTotalTime"] == 90 and "model" in ai["recommendedAction"]
+
+
+# ---------------------------------------------------------------------------
+# Per-node settings (the editor's Settings tab, stored under config["_settings"])
+# ---------------------------------------------------------------------------
+
+def _run_with_settings(settings, node_type="Flaky", workspace_retries=0):
+    import executor.engine as engine_mod
+    engine_mod.RETRY_BACKOFF_SECONDS = 0
+    Flaky.calls = 0
+    registry = NodeRegistry()
+    for cls in (Trigger, Flaky, Boom, Step):
+        registry.register(cls)
+    wf = WorkflowDefinition(
+        nodes=[WorkflowNode(id="t", type="T"),
+               WorkflowNode(id="f", type=node_type, config={"_settings": settings}),
+               WorkflowNode(id="after", type="Step", config={"name": "after"})],
+        connections=[WorkflowConnection.from_dict({"from": "t", "to": "f"}),
+                     WorkflowConnection.from_dict({"from": "f", "to": "after"})])
+    ctx = ExecutionContext(execution_id="e", workflow_id="w", user_id="u", retry_attempts=workspace_retries)
+    return asyncio.run(WorkflowEngine(registry).execute(wf, {}, ctx)), ctx
+
+
+def test_node_retry_setting_overrides_the_workspace_default():
+    result, _ = _run_with_settings({"retry_on_fail": True, "max_tries": 3, "wait_ms": 0}, workspace_retries=0)
+    assert result.status == "completed"
+    assert [log.attempts for log in result.logs if log.node_id == "f"] == [2]   # failed once, then recovered
+
+
+def test_node_retry_is_bounded():
+    result, _ = _run_with_settings({"retry_on_fail": True, "max_tries": 999, "wait_ms": 0}, node_type="Boom")
+    assert result.status == "failed" and result.logs[-1].attempts == 5
+
+
+def test_node_settings_are_not_passed_to_the_node():
+    seen = {}
+
+    class Spy(BaseNode):
+        definition = _definition("Spy")
+
+        async def execute(self, config, input_data, context):
+            seen.update(config)
+            return {}
+
+    registry = NodeRegistry()
+    for cls in (Trigger, Spy):
+        registry.register(cls)
+    wf = WorkflowDefinition(nodes=[WorkflowNode(id="t", type="T"),
+                                   WorkflowNode(id="s", type="Spy", config={"a": 1, "_settings": {"on_error": "continue"}})],
+                            connections=[WorkflowConnection.from_dict({"from": "t", "to": "s"})])
+    asyncio.run(WorkflowEngine(registry).execute(wf, {}, ExecutionContext(execution_id="e", workflow_id="w", user_id="u")))
+    assert seen == {"a": 1}
+
+
+def test_on_error_continue_keeps_the_run_going_and_exposes_the_error():
+    result, ctx = _run_with_settings({"on_error": "continue"}, node_type="Boom")
+    assert result.status == "completed"
+    assert ctx.variables["order"] == ["after"]                       # the next node still ran
+    assert ctx.node_outputs["f"] == {"error": "kaboom", "failed": True}
+    assert [log.status.value for log in result.logs if log.node_id == "f"] == ["failed"]   # the failure is still on record
+
+
+def test_on_error_stop_is_the_default():
+    result, ctx = _run_with_settings({}, node_type="Boom")
+    assert result.status == "failed" and "order" not in ctx.variables
+
+
+def test_garbage_settings_do_not_crash_the_run():
+    result, _ = _run_with_settings({"retry_on_fail": True, "max_tries": "lots", "wait_ms": None}, node_type="Boom")
+    assert result.status == "failed" and result.logs[-1].attempts == 3   # fell back to the default of 3 tries

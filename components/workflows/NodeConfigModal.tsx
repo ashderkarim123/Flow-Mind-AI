@@ -41,6 +41,7 @@ import { getNodeByType } from '@/lib/workflow/NodeRegistry';
 import { getNodeDefinitionByType } from '@/lib/workflow/NodeDefinitions';
 import VariableReferencePicker from './VariableReferencePicker';
 import CredentialPicker from './CredentialPicker';
+import NodeSettings from './NodeSettings';
 import { LocalModelField, McpArgsField, McpServerField, McpServersField, McpToolField, SchedulePicker } from './fields/ConnectionFields';
 import apiClient from '@/lib/api/client';
 
@@ -1398,6 +1399,8 @@ export default function NodeConfigModal({
                   })()}
                 </div>
               )}
+
+              <NodeSettings value={config._settings} onChange={(v) => setConfig(prev => ({ ...prev, _settings: v }))} />
 
               {/* Advanced Section */}
               {showAdvanced && (

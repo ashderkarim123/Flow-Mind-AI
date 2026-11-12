@@ -29,6 +29,20 @@ from executor import resolver as _resolver
 logger = logging.getLogger(__name__)
 
 RETRY_BACKOFF_SECONDS = 1.0  # waits 1s, 2s, 3s… between attempts
+SETTINGS_KEY = "_settings"   # per-node settings live inside node.config so every save/load layer keeps them
+
+
+def _node_settings(node: "WorkflowNode") -> Dict[str, Any]:
+    """Per-node settings from the editor's Settings tab: retry_on_fail, max_tries, wait_ms, on_error ("stop"|"continue")."""
+    value = node.config.get(SETTINGS_KEY)
+    return value if isinstance(value, dict) else {}
+
+
+def _bounded_int(value: Any, default: int, low: int, high: int) -> int:
+    try:
+        return max(low, min(high, int(value)))
+    except (TypeError, ValueError):
+        return default
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +239,14 @@ class WorkflowEngine:
             context.append_log(log)
 
             if log.status == NodeStatus.FAILED:
-                overall_status = "failed"
-                overall_error = log.error
-                break  # fail-fast
+                if _node_settings(node).get("on_error") == "continue":
+                    # shortcut: only the main path honours "continue"; a failing node inside a Loop body still stops the run
+                    node_output = {"error": log.error, "failed": True}
+                    context.store_output(node.id, node_output)
+                else:
+                    overall_status = "failed"
+                    overall_error = log.error
+                    break  # fail-fast
 
             # Update trigger_output if this is the first (trigger) node
             node_cls = self._registry.get(node.type)
@@ -286,15 +305,20 @@ class WorkflowEngine:
         node_cls = self._registry.get(node.type)
         node_instance: BaseNode = node_cls()
 
-        # Resolve config variables
-        resolved_config = _resolver.resolve(node.config, context)
+        # Resolve config variables (the settings block is for the engine, not the node)
+        settings = _node_settings(node)
+        resolved_config = _resolver.resolve({k: v for k, v in node.config.items() if k != SETTINGS_KEY}, context)
 
         started_at = datetime.now(timezone.utc).isoformat()
         t0 = time.monotonic()
 
         logger.info("▶ Executing node %s (%s) config=%s", node.id, node.type, resolved_config)
-        # Error handling: retry transient failures (rate limits, timeouts) per workspace setting
+        # Error handling: retry transient failures (rate limits, timeouts); the node's own setting beats the workspace's
         max_attempts = 1 + max(0, int(context.retry_attempts or 0))
+        fixed_wait: Optional[float] = None
+        if settings.get("retry_on_fail"):
+            max_attempts = _bounded_int(settings.get("max_tries"), 3, 1, 5)
+            fixed_wait = _bounded_int(settings.get("wait_ms"), 1000, 0, 60000) / 1000
         for attempt in range(1, max_attempts + 1):
             try:
                 output = await node_instance.execute(resolved_config, prev_output, context)
@@ -306,7 +330,7 @@ class WorkflowEngine:
                 error = f"Unexpected error: {exc}"
             if attempt < max_attempts:
                 logger.warning("Node %s failed (attempt %d/%d): %s — retrying", node.id, attempt, max_attempts, error)
-                await asyncio.sleep(RETRY_BACKOFF_SECONDS * attempt)
+                await asyncio.sleep(fixed_wait if fixed_wait is not None else RETRY_BACKOFF_SECONDS * attempt)
         else:
             duration_ms = (time.monotonic() - t0) * 1000
             log = NodeLog(
