@@ -17,6 +17,7 @@ import {
   User
 } from "lucide-react";
 import { aiToolsApi } from "@/lib/api/aiTools";
+import { toHistory, WORKFLOW_QUESTIONS } from "@/lib/workflow/assistantContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -39,6 +40,8 @@ interface WorkflowAssistantProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   getCurrentCanvasState?: () => any;
+  /** Everything the assistant should know: the canvas, the workflow's variables and the last run. */
+  getAssistantContext?: () => { state?: unknown; variables?: Record<string, unknown>; lastRun?: unknown };
   onApplyWorkflowPatch?: (patchObj: any) => void;
 }
 
@@ -57,11 +60,11 @@ const initialMessages: Message[] = [
   }
 ];
 
+// Questions about the workflow on the canvas come first; clicking one sends it straight away
 const commonSuggestions = [
+  ...WORKFLOW_QUESTIONS,
   "How do I connect multiple APIs?",
   "What's the best way to handle errors?",
-  "Can you help me with conditional logic?",
-  "Show me workflow templates"
 ];
 
 const STORAGE_KEY = "nexagent_assistant_messages";
@@ -72,7 +75,10 @@ function loadMessages(): Message[] {
     if (stored) {
       const parsed = JSON.parse(stored) as Message[];
       // Restore Date objects from JSON strings
-      return parsed.map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+      // an error bubble saved by an earlier version would stay in the chat for good
+      return parsed
+        .filter(m => !(m.type === 'assistant' && m.content.startsWith('I encountered an issue')))
+        .map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
     }
   } catch {
     // ignore
@@ -85,6 +91,7 @@ export function WorkflowAssistant({
   isMinimized = false, 
   onToggleMinimize,
   getCurrentCanvasState,
+  getAssistantContext,
   onApplyWorkflowPatch
 }: WorkflowAssistantProps) {
   const [messages, setMessages] = useState<Message[]>(() => loadMessages());
@@ -234,11 +241,11 @@ export function WorkflowAssistant({
 
   const fetchAssistantResponse = async (userMessage: string): Promise<{ answer: string; workflow_action?: any; sources?: string[] }> => {
     try {
-      const parentState = getCurrentCanvasState ? getCurrentCanvasState() : null;
+      const ctx = getAssistantContext ? getAssistantContext() : { state: getCurrentCanvasState ? getCurrentCanvasState() : null };
       
       // Answered by the backend: it knows the real node catalog and uses whichever model the operator
       // configured (a local Ollama model works fully offline). apiClient rejects with { message }.
-      const data = await aiToolsApi.assist(userMessage, parentState).catch((e: any) => {
+      const data = await aiToolsApi.assist(userMessage, { ...ctx, history: toHistory(messages) }).catch((e: any) => {
         throw new Error(e?.message || 'Failed to get response');
       });
 
@@ -251,13 +258,14 @@ export function WorkflowAssistant({
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (textOverride?: string) => {
+    const text = (textOverride ?? inputValue).trim();
+    if (!text || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content: inputValue.trim(),
+      content: text,
       timestamp: new Date(),
       status: "sent"
     };
@@ -493,7 +501,7 @@ export function WorkflowAssistant({
             {commonSuggestions.map((suggestion, index) => (
               <button
                 key={index}
-                onClick={() => handleSuggestionClick(suggestion)}
+                onClick={() => (WORKFLOW_QUESTIONS.includes(suggestion) ? handleSendMessage(suggestion) : handleSuggestionClick(suggestion))}
                 className="block w-full text-left text-xs px-2 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded transition-colors"
               >
                 {suggestion}
@@ -517,7 +525,7 @@ export function WorkflowAssistant({
             disabled={isLoading}
           />
           <Button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!inputValue.trim() || isLoading}
             size="sm"
             className="absolute right-2 bottom-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white p-2 h-8 w-8 disabled:opacity-50"

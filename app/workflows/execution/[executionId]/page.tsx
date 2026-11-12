@@ -7,9 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Calendar, Cpu, Loader2, RotateCcw, Timer, XCircle, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, Cpu, Loader2, RotateCcw, Sparkles, Timer, XCircle, Zap } from 'lucide-react';
 import apiClient from '@/lib/api/client';
+import { aiToolsApi } from '@/lib/api/aiTools';
 import { ExecutionSummary, formatDuration, StatusBadge } from '@/components/executions/ExecutionStatus';
+
+/** What the platform worked out about a failure (see backend executor/errors.py). */
+interface ErrorInfo {
+  category: string;
+  retryable: boolean;
+  title: string;
+  explanation: string;
+  suggestion: string;
+}
 
 interface NodeLog {
   nodeId: string;
@@ -18,6 +28,9 @@ interface NodeLog {
   status: string;
   output?: unknown;
   error?: string | null;
+  errorInfo?: ErrorInfo | null;
+  attempts?: number;
+  fallbackUsed?: boolean;
   executionTimeMs?: number;
   startedAt?: string;
   completedAt?: string;
@@ -27,6 +40,8 @@ interface ExecutionRecord extends ExecutionSummary {
   input?: unknown;
   output?: unknown;
   nodeLogs?: NodeLog[];
+  errorInfo?: ErrorInfo | null;
+  failedSteps?: number;
 }
 
 const pretty = (value: unknown) => JSON.stringify(value ?? {}, null, 2);
@@ -36,6 +51,17 @@ export default function ExecutionPage({ params }: { params: Promise<{ executionI
   const [execution, setExecution] = useState<ExecutionRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [explain, setExplain] = useState<{ loading: boolean; text?: string; summary?: boolean; error?: string }>({ loading: false });
+
+  const askAssistant = async () => {
+    setExplain({ loading: true });
+    try {
+      const reply = await aiToolsApi.assist('Why did this run fail, and what exactly should I change to fix it?', { executionId });
+      setExplain({ loading: false, text: reply.answer, summary: reply.source === 'summary' });
+    } catch (e: any) {
+      setExplain({ loading: false, error: e?.message || 'The assistant could not be reached' });
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -125,10 +151,37 @@ export default function ExecutionPage({ params }: { params: Promise<{ executionI
           ))}
         </div>
 
-        {execution.error && (
-          <Alert className="bg-red-500/15 border-red-500/30 text-red-400">
-            <XCircle className="h-4 w-4" />
-            <AlertDescription><strong>Error:</strong> {execution.error}</AlertDescription>
+        {(execution.error || execution.errorInfo) && (
+          <Card className="bg-red-500/10 border border-red-500/30">
+            <CardHeader>
+              <CardTitle className="text-red-300 flex items-center gap-2">
+                <XCircle className="h-5 w-5" /> {execution.errorInfo?.title || 'The run failed'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {execution.errorInfo && <p className="text-white/80">{execution.errorInfo.explanation}</p>}
+              {execution.errorInfo && <p className="text-white"><strong>What to do:</strong> {execution.errorInfo.suggestion}</p>}
+              {execution.error && <p className="font-mono text-xs text-white/50 break-words">{execution.error}</p>}
+              <Button size="sm" onClick={askAssistant} disabled={explain.loading} className="bg-[#1D4ED8] hover:bg-[#1E40AF] text-white">
+                <Sparkles className="h-4 w-4 mr-2" /> {explain.loading ? 'Thinking…' : 'Explain with AI'}
+              </Button>
+              {explain.text && (
+                <div className="whitespace-pre-wrap rounded border border-white/10 bg-black/30 p-3 text-white/90">
+                  {explain.text}
+                  {explain.summary && <p className="mt-2 text-xs text-white/40">The AI model could not be reached, so this is a plain summary.</p>}
+                </div>
+              )}
+              {explain.error && <p className="text-red-300">{explain.error}</p>}
+            </CardContent>
+          </Card>
+        )}
+
+        {!execution.error && (execution.failedSteps ?? 0) > 0 && (
+          <Alert className="bg-amber-500/15 border-amber-500/30 text-amber-300">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {execution.failedSteps} step(s) failed, but the workflow carried on because of the step settings (carry on or a fallback value). Open the steps below marked Failed to see why.
+            </AlertDescription>
           </Alert>
         )}
 
@@ -165,6 +218,8 @@ export default function ExecutionPage({ params }: { params: Promise<{ executionI
                     <span className="text-xs text-white/40">#{index + 1}</span>
                     <span className="font-medium text-white">{log.nodeName || log.nodeType}</span>
                     <Badge className="text-xs bg-white/10 text-white/70 border-white/20">{log.nodeType}</Badge>
+                    {(log.attempts ?? 1) > 1 && <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">tried {log.attempts} times</Badge>}
+                    {log.fallbackUsed && <Badge className="text-xs bg-sky-500/20 text-sky-300 border-sky-500/30">fallback used</Badge>}
                   </div>
                   <div className="flex items-center gap-3">
                     <StatusBadge status={log.status} />
@@ -174,7 +229,11 @@ export default function ExecutionPage({ params }: { params: Promise<{ executionI
                 <div className="px-4 pb-4 space-y-2">
                   {log.error && (
                     <Alert className="bg-red-500/15 border-red-500/30 text-red-400">
-                      <AlertDescription>{log.error}</AlertDescription>
+                      <AlertDescription>
+                        {log.errorInfo && <span className="block font-medium text-red-300">{log.errorInfo.title}</span>}
+                        {log.error}
+                        {log.errorInfo && <span className="block mt-1 text-white/70">What to do: {log.errorInfo.suggestion}</span>}
+                      </AlertDescription>
                     </Alert>
                   )}
                   <pre className="bg-black/30 border border-white/10 p-2 rounded text-xs overflow-auto max-h-64 text-white/80">

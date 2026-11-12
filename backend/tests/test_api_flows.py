@@ -316,3 +316,93 @@ def test_typed_workflow_variables_reach_the_steps_as_plain_values(env):
     record = env.database.data["executions"][run["summary"]["execution_id"]]
     assert record["status"] == "completed"
     assert record["nodeLogs"][1]["output"]["message"] == "Acme 25 3"
+
+
+# ---------------------------------------------------------------------------
+# Module 09 - what a failed run leaves behind
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=False)
+def refused(monkeypatch):
+    """Every outgoing HTTP call is refused, so a 'broken' workflow fails the same way on every machine."""
+    import httpx
+
+    async def refuse(self, *a, **k):
+        raise httpx.ConnectError("All connection attempts failed")
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", refuse)
+
+
+def _broken_workflow(env, wid, settings=None):
+    cfg = {"url": "http://127.0.0.1:1/unreachable", "timeout": 2}
+    if settings:
+        cfg["_settings"] = settings
+    env.database.data["workflows"][wid] = {
+        "name": "Broken flow", "userId": "u-user",
+        "nodes": [{"id": "t", "type": "ManualTrigger", "name": "Start", "config": {}},
+                  {"id": "h", "type": "HttpRequest", "name": "Fetch prices", "config": cfg}],
+        "edges": [{"source": "t", "target": "h"}],
+    }
+
+
+@pytest.fixture
+def notices(monkeypatch):
+    """Captures notification-centre items instead of writing them, and starts each test with no cool-down."""
+    from app.services import notification_service as ns
+    sent = []
+
+    async def capture(request, *a, **k):
+        sent.append(request)
+        return "n1"
+
+    monkeypatch.setattr(ns.notification_service, "create_notification", capture)
+    wf_api._last_failure_notice.clear()
+    return sent
+
+
+def test_a_failed_run_stores_a_plain_language_explanation(env, notices, refused):
+    _broken_workflow(env, "bad1")
+    run = env.as_("user").post("/api/v1/workflows/bad1/execute", json={}).json()
+    record = env.database.data["executions"][run["summary"]["execution_id"]]
+    assert record["status"] == "failed"
+    assert record["errorInfo"]["category"] == "network" and record["errorInfo"]["retryable"] is True
+    assert record["errorInfo"]["title"] and record["errorInfo"]["suggestion"]
+    failed = [log for log in record["nodeLogs"] if log["status"] == "failed"][0]
+    assert failed["errorInfo"] == record["errorInfo"] and record["failedSteps"] == 1
+
+
+def test_a_failed_run_raises_an_alert_with_advice_and_one_notification(env, notices, refused):
+    _broken_workflow(env, "bad2")
+    client = env.as_("user")
+    first = client.post("/api/v1/workflows/bad2/execute", json={}).json()["summary"]["execution_id"]
+    client.post("/api/v1/workflows/bad2/execute", json={})
+    alerts = [a for a in env.database.data.get("analytics_alerts", {}).values() if a.get("workflowId") == "bad2"]
+    assert len(alerts) == 2 and alerts[0]["hint"] and alerts[0]["errorCategory"] == "network"     # every failure is an alert
+    assert len(notices) == 1                                                                       # but the inbox is told once per cool-down
+    note = notices[0]
+    assert note.user_id == "u-user" and note.notification_type.value == "workflow_failed" and note.priority.value == "high"
+    assert "Broken flow" in note.title and note.action_url == f"/workflows/execution/{first}"
+    assert note.metadata["category"] == "network" and note.metadata["execution_id"] == first
+
+
+def test_a_step_with_a_fallback_keeps_the_run_green_but_on_record(env, notices, refused):
+    _broken_workflow(env, "bad3", {"on_error": "fallback", "fallback_value": "no data"})
+    run = env.as_("user").post("/api/v1/workflows/bad3/execute", json={}).json()
+    record = env.database.data["executions"][run["summary"]["execution_id"]]
+    assert record["status"] == "completed" and record["errorInfo"] is None
+    assert record["failedSteps"] == 1 and record["nodeLogs"][1]["fallbackUsed"] is True
+    assert notices == [] and not [a for a in env.database.data.get("analytics_alerts", {}).values() if a.get("workflowId") == "bad3"]
+
+
+def test_a_notification_failure_never_breaks_the_run(env, monkeypatch, refused):
+    from app.services import notification_service as ns
+
+    async def boom(*a, **k):
+        raise RuntimeError("notification store down")
+
+    monkeypatch.setattr(ns.notification_service, "create_notification", boom)
+    wf_api._last_failure_notice.clear()
+    _broken_workflow(env, "bad4")
+    resp = env.as_("user").post("/api/v1/workflows/bad4/execute", json={})
+    assert resp.status_code == 200
+    assert env.database.data["executions"][resp.json()["summary"]["execution_id"]]["status"] == "failed"

@@ -69,6 +69,8 @@ export interface ExecutionLog {
   input?: any;
   output?: any;
   error?: string;
+  /** What the server worked out about the failure: category, title, explanation, suggestion */
+  errorInfo?: { category: string; retryable: boolean; title: string; explanation: string; suggestion: string } | null;
   retryCount: number;
   metadata: Record<string, any>;
 }

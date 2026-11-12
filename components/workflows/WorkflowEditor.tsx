@@ -6,6 +6,7 @@ import { WorkflowToolbar } from "./WorkflowToolbar";
 import { WorkflowSidebar } from "./WorkflowSidebar";
 import WorkflowCanvas, { WorkflowCanvasRef } from "./WorkflowCanvas";
 import WorkflowVariables from "./WorkflowVariables";
+import { toAssistantRun } from "@/lib/workflow/assistantContext";
 import { WorkflowAssistant } from "./WorkflowAssistant";
 import ExecutionModal from "./ExecutionModal";
 import { WorkflowWalkthrough } from "./WorkflowWalkthrough";
@@ -59,6 +60,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
   const [outputTab, setOutputTab] = useState<'output' | 'network' | 'chat'>('output');
   const [showExportModal, setShowExportModal] = useState(false);
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, any>>({});
+  const [lastRun, setLastRun] = useState<ReturnType<typeof toAssistantRun>>(null);   // what the assistant is told about the last run
   const [showVariables, setShowVariables] = useState(false);
   const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -1286,7 +1288,8 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
               setActiveNodeId(null);
               try { canvasRef.current?.setExecutingNode(null); } catch {}
               // Add error message to output
-              setExecutionOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${log?.error || 'Unknown error'}`]);
+              setExecutionOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${log?.error || 'Unknown error'}`,
+                ...(log?.errorInfo ? [`[${new Date().toLocaleTimeString()}] 💡 ${log.errorInfo.title}. ${log.errorInfo.suggestion}`] : [])]);
             }
           }
         );
@@ -1294,6 +1297,8 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
         // Stop the wave and let its last step settle before the accurate replay
         _wave.running = false;
         await new Promise(r => setTimeout(r, 550));
+
+        setLastRun(toAssistantRun(execution));
 
         // Store node outputs so variable picker can show actual values
         if (execution.nodeLogs && execution.nodeLogs.length > 0) {
@@ -2198,6 +2203,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps = { workflowI
             isMinimized={assistantMinimized}
             onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
             getCurrentCanvasState={() => canvasRef.current?.getWorkflowData() || null}
+            getAssistantContext={() => ({ state: canvasRef.current?.getWorkflowData() || null, variables: workflowVariables, lastRun })}
             onApplyWorkflowPatch={(patchObj) => {
               if (!canvasRef.current || !patchObj) return;
 

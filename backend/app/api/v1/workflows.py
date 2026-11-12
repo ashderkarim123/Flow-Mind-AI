@@ -32,6 +32,7 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 # New workflow engine
+from executor.errors import classify_error
 from executor.engine import ExecutionResult, WorkflowEngine, WorkflowDefinition
 from executor.context import ExecutionContext
 from executor.execution_environment import ExecutionEnvironment
@@ -208,6 +209,8 @@ def _log_dict(log) -> Dict[str, Any]:
         "startedAt": log.started_at,
         "completedAt": log.finished_at,
         "attempts": getattr(log, "attempts", 1),
+        "errorInfo": getattr(log, "error_info", None),
+        "fallbackUsed": getattr(log, "fallback_used", False),
     }
 
 
@@ -321,6 +324,10 @@ async def run_and_record(
         await ExecutionEnvironment.cleanup_context(context)
 
     node_logs = [_log_dict(log) for log in result.logs]
+    failed_logs = [log for log in node_logs if log["status"] == "failed"]
+    error_info = None
+    if result.status == "failed":   # the first failed step explains the run; a run-level failure (time limit, engine fault) is classified from its message
+        error_info = next((log["errorInfo"] for log in failed_logs if log.get("errorInfo")), None) or classify_error(result.error).to_dict()
     record = {
         "status": result.status,
         "endTime": int(time.time() * 1000),
@@ -328,6 +335,8 @@ async def run_and_record(
         "nodeLogs": node_logs,
         "output": result.final_output or {},
         "error": result.error,
+        "errorInfo": error_info,
+        "failedSteps": len(failed_logs),   # also counts steps that failed but were carried on from, so a "completed" run can still show problems
         "stepsCompleted": sum(1 for log in node_logs if log["status"] == "success"),
         "metadata": _usage_from_logs(result.logs),
     }
@@ -351,27 +360,55 @@ async def run_and_record(
         logger.warning("Failed to increment execution count for %s: %s", workflow_id, exc)
 
     if result.status == "failed":
-        await _record_failure_alert(workflow_id, workflow, user_id, exec_id, result.error)
+        await _record_failure_alert(workflow_id, workflow, user_id, exec_id, result.error, error_info)
 
     return {"execution_id": exec_id, "execution_time_ms": result.duration_ms, "node_logs": node_logs, **record}
 
 
-async def _record_failure_alert(workflow_id, workflow, user_id, exec_id, error) -> None:
-    """Surface failed runs on the dashboard alerts panel."""
+FAILURE_NOTICE_COOLDOWN_S = 600
+_last_failure_notice: Dict[tuple, float] = {}   # shortcut: in memory, so it resets on restart and is per instance
+
+
+async def _record_failure_alert(workflow_id, workflow, user_id, exec_id, error, error_info=None) -> None:
+    """Surface a failed run on the dashboard alerts panel and in the notification centre."""
+    info = error_info or classify_error(error).to_dict()
+    name = workflow.get("name") or workflow_id
     try:
         from app.services.analytics_service import analytics_service
         await analytics_service.create_alert({
             "severity": "warning",
-            "title": f"Workflow failed: {workflow.get('name') or workflow_id}",
+            "title": f"Workflow failed: {name}",
             "message": (error or "Unknown error")[:500],
+            "hint": info.get("suggestion", ""),
+            "errorCategory": info.get("category", "unknown"),
             "category": "workflow",
-            "source": workflow.get("name") or workflow_id,
+            "source": name,
             "userId": user_id,
             "workflowId": workflow_id,
             "executionId": exec_id,
         })
     except Exception as exc:
         logger.warning("Failed to create failure alert: %s", exc)
+
+    # One notification per workflow per cool-down: a schedule that fails every minute must not fill someone's inbox
+    key = (user_id, workflow_id)
+    if not user_id or time.time() - _last_failure_notice.get(key, 0) < FAILURE_NOTICE_COOLDOWN_S:
+        return
+    _last_failure_notice[key] = time.time()
+    try:
+        from app.models.notification_models import NotificationCreateRequest, NotificationPriority, NotificationType
+        from app.services.notification_service import notification_service
+        await notification_service.create_notification(NotificationCreateRequest(
+            user_id=user_id,
+            title=f"Workflow failed: {name}"[:200],
+            message=f"{info.get('title', 'The run failed')}. {info.get('suggestion', '')}"[:2000],
+            notification_type=NotificationType.WORKFLOW_FAILED,
+            priority=NotificationPriority.HIGH,
+            metadata={"workflow_id": workflow_id, "execution_id": exec_id, "category": info.get("category", "unknown")},
+            action_url=f"/workflows/execution/{exec_id}",
+        ))
+    except Exception as exc:
+        logger.warning("Failed to create failure notification: %s", exc)
 
 
 # ---------------------------------------------------------------------------

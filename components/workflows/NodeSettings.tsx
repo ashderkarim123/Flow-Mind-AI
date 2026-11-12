@@ -11,7 +11,9 @@ export interface NodeSettingsValue {
   retry_on_fail?: boolean;
   max_tries?: number;
   wait_ms?: number;
-  on_error?: 'stop' | 'continue';
+  timeout_s?: number;
+  on_error?: 'stop' | 'continue' | 'fallback';
+  fallback_value?: string;
   notes?: string;
 }
 
@@ -25,7 +27,7 @@ export default function NodeSettings({ value, onChange }: { value?: NodeSettings
   const set = (patch: NodeSettingsValue) => onChange({ ...s, ...patch });
 
   return (
-    <details className="rounded-lg border border-slate-700 bg-slate-800/40 group" open={!!(s.retry_on_fail || s.on_error === 'continue' || s.notes)}>
+    <details className="rounded-lg border border-slate-700 bg-slate-800/40 group" open={!!(s.retry_on_fail || s.timeout_s || (s.on_error && s.on_error !== 'stop') || s.notes)}>
       <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-white">Node settings</summary>
       <div className="space-y-5 px-4 pb-4">
         <div>
@@ -52,14 +54,34 @@ export default function NodeSettings({ value, onChange }: { value?: NodeSettings
 
         <div>
           <Label className="text-white">If this step fails</Label>
-          <Select value={s.on_error || 'stop'} onValueChange={(v) => set({ on_error: v as 'stop' | 'continue' })}>
+          <Select value={s.on_error || 'stop'} onValueChange={(v) => set({ on_error: v as 'stop' | 'continue' | 'fallback' })}>
             <SelectTrigger className="mt-2 bg-slate-800 border-slate-700 text-white"><SelectValue /></SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700 text-white">
               <SelectItem value="stop" className={item}>Stop the workflow</SelectItem>
               <SelectItem value="continue" className={item}>Carry on (the error is passed on as this step&apos;s output)</SelectItem>
+              <SelectItem value="fallback" className={item}>Use a fallback value and carry on</SelectItem>
             </SelectContent>
           </Select>
-          <p className={hint}>With "carry on", later steps can read {'{{$node.<id>.error}}'}.</p>
+          {s.on_error === 'fallback' && (
+            <div className="mt-3">
+              <Label className="text-gray-300 text-xs">Fallback value</Label>
+              <Input value={s.fallback_value ?? ''} placeholder="for example: no data  or  {&quot;price&quot;: 0}"
+                onChange={(e) => set({ fallback_value: e.target.value })} className="bg-slate-800 border-slate-700 text-white" />
+              <p className={hint}>Later steps read it as {'{{$node.<id>.result}}'}. Numbers, true/false and JSON keep their type.</p>
+            </div>
+          )}
+          <p className={hint}>
+            {s.on_error === 'fallback' || s.on_error === 'continue'
+              ? 'The failure is still recorded in the run, so you can see it on the Executions page.'
+              : 'The run stops and shows what went wrong and how to fix it.'}
+          </p>
+        </div>
+
+        <div>
+          <Label className="text-white">Time limit for this step (seconds)</Label>
+          <Input type="number" min={0} max={600} value={s.timeout_s ?? 0}
+            onChange={(e) => set({ timeout_s: Number(e.target.value) })} className="mt-2 bg-slate-800 border-slate-700 text-white" />
+          <p className={hint}>0 means no limit of its own (the workspace time limit still applies).</p>
         </div>
 
         <div>

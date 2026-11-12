@@ -24,11 +24,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.v1.credentials import load_user_credentials_sync
-from app.core.auth_dependency import require_permission
+from app.core.auth_dependency import has_permission, require_permission
 from app.core.netguard import UnsafeURL, assert_safe_url
 from app.core.security import rate_limit
-from app.services import llm_service, workflow_generator
-from executor.context import ExecutionContext
+from app.services import llm_service, workflow_digest, workflow_generator
+from executor.context import ExecutionContext, plain_variables
 from nodes.base import NodeExecutionError
 from nodes.registry import get_registry
 
@@ -180,27 +180,77 @@ async def generate_workflow(request: Request, body: GenerateRequest, user: dict 
 
 class AssistRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=4000)
-    current_state: Optional[Dict[str, Any]] = None
+    current_state: Optional[Dict[str, Any]] = None       # the canvas: {nodes, connections}
+    variables: Optional[Dict[str, Any]] = None           # the workflow's variables
+    last_run: Optional[Dict[str, Any]] = None            # the editor's last run: status, error, errorInfo, nodeLogs
+    history: Optional[List[Dict[str, str]]] = None       # earlier turns: [{"role": "user"|"assistant", "content": "..."}]
+    execution_id: Optional[str] = None                   # explain a past run (from the Executions page) instead of the canvas
+
+
+GUIDE = (
+    "You are the FlowMind AI workflow assistant for non-technical users. Answer briefly and in plain language, with short steps. "
+    "Refer to steps by the names the user sees. When you mention a node, use its exact name from the catalog. "
+    "To use data from an earlier step write {{$node.<id>.<output name>}} using only output names listed in the catalog; "
+    "workflow variables are written {{$vars.<name>}}.\n"
+    "You can see the user's workflow below. Secrets are hidden as ••••: never ask for or repeat a key or password. "
+    "To explain a workflow, say what it does in order, in plain words, and point out anything risky or unfinished. "
+    "To troubleshoot, start from 'Last run' and 'Possible problems', say what went wrong and why, and name the exact setting to change. "
+    "The platform has safety nets you can recommend where they fit: retry if a step fails, a time limit for a step, carrying on after a "
+    "failure, and a fallback value; failed runs also show on the dashboard alerts and the Executions page. "
+    "If you are not sure, say so; do not invent settings or steps."
+)
+
+
+def _db():
+    from app.services.firebase_service import firebase_service
+    return firebase_service.db
+
+
+def _load_execution(execution_id: str, user: dict) -> Dict[str, Any]:
+    """A past run and its workflow, for 'explain this failure'. Someone else's run is a 404, as on the Executions page."""
+    record = _db().collection("executions").document(execution_id).get()
+    data = record.to_dict() if getattr(record, "exists", False) else None
+    if not data or (data.get("userId") != user.get("uid") and not has_permission(user, "analytics:platform")):
+        raise HTTPException(status_code=404, detail="Execution not found")
+    workflow = _db().collection("workflows").document(data.get("workflowId") or "").get()
+    wf = (workflow.to_dict() if getattr(workflow, "exists", False) else None) or {}
+    logs = [{k: log.get(k) for k in ("nodeId", "nodeName", "nodeType", "status", "error", "errorInfo", "attempts", "executionTimeMs", "fallbackUsed")}
+            for log in (data.get("nodeLogs") or [])]
+    return {
+        "state": {"name": wf.get("name") or data.get("workflowName"), "nodes": wf.get("nodes") or [], "edges": wf.get("edges") or []},
+        "variables": plain_variables(wf.get("variables")),
+        "last_run": {"status": data.get("status"), "error": data.get("error"), "errorInfo": data.get("errorInfo"), "nodeLogs": logs},
+    }
+
+
+def _history(turns: Optional[List[Dict[str, str]]]) -> List[Dict[str, str]]:
+    valid = [{"role": t["role"], "content": str(t["content"])[:1500]} for t in (turns or [])
+             if isinstance(t, dict) and t.get("role") in ("user", "assistant") and str(t.get("content") or "").strip()]
+    return valid[-8:]
 
 
 @router.post("/assist")
 @rate_limit(requests_per_minute=20)
 async def assist(request: Request, body: AssistRequest, user: dict = Depends(require_permission("ai:use"))):
-    """Answer a question about building workflows, aware of the real node catalog and the open canvas."""
-    state = ""
-    if body.current_state:
-        state = "\n\nThe user's current workflow on the canvas:\n" + json.dumps(body.current_state, default=str)[:6000]
-    system = (
-        "You are the FlowMind AI workflow assistant for non-technical users. Answer briefly and in plain language, "
-        "with short steps. When you mention a node, use its exact name from the catalog. To use data from an earlier "
-        "step write {{$node.<id>.<output name>}} using only output names listed in the catalog.\n\nNODE CATALOG:\n"
-        + workflow_generator.catalog_text(get_registry()) + state
-    )
+    """Explain or troubleshoot a workflow: aware of the node catalog, the canvas, its variables and the last run."""
+    state, variables, last_run = body.current_state, body.variables, body.last_run
+    if body.execution_id:
+        loaded = _load_execution(body.execution_id, user)
+        state, variables, last_run = loaded["state"], loaded["variables"], loaded["last_run"]
+    digest = workflow_digest.describe_workflow(state, get_registry(), variables, last_run) if (state or last_run) else None
+
+    system = (GUIDE + "\n\nNODE CATALOG:\n" + workflow_generator.catalog_text(get_registry())
+              + "\n\nTHE USER'S WORKFLOW:\n" + (digest["text"] if digest else "(no workflow is open)"))
+    messages = [{"role": "system", "content": system}, *_history(body.history), {"role": "user", "content": body.question}]
     try:
-        answer = await llm_service.chat(
-            [{"role": "system", "content": system}, {"role": "user", "content": body.question}],
-            temperature=0.4, max_tokens=1024,
-        )
+        answer = await llm_service.chat(messages, temperature=0.4, max_tokens=1024)
+        source = "model"
     except llm_service.LLMUnavailable as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
-    return {"answer": answer or "I couldn't come up with an answer — please rephrase the question.", "sources": []}
+        if not digest:
+            raise HTTPException(status_code=503, detail=str(exc))
+        # No model reachable: still tell the user what we know, which needs no model
+        answer = (workflow_digest.plain_explanation(digest, last_run)
+                  + "\n\n(The AI model is not available right now, so this is a plain summary. " + str(exc) + ")")
+        source = "summary"
+    return {"answer": answer or "I couldn't come up with an answer — please rephrase the question.", "sources": [],
+            "problems": digest["problems"] if digest else [], "source": source}

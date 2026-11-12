@@ -14,6 +14,7 @@ Responsibilities:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ from nodes.base import BaseNode, NodeExecutionError, NodeLog, NodeStatus, Unknow
 from nodes.registry import NodeRegistry
 from executor.context import ExecutionContext
 from executor import resolver as _resolver
+from executor.errors import classify_error
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,21 @@ SETTINGS_KEY = "_settings"   # per-node settings live inside node.config so ever
 
 
 def _node_settings(node: "WorkflowNode") -> Dict[str, Any]:
-    """Per-node settings from the editor's Settings tab: retry_on_fail, max_tries, wait_ms, on_error ("stop"|"continue")."""
+    """Per-node settings from the editor's Settings tab: retry_on_fail, max_tries, wait_ms, timeout_s,
+    on_error ("stop" | "continue" | "fallback") and fallback_value."""
     value = node.config.get(SETTINGS_KEY)
     return value if isinstance(value, dict) else {}
+
+
+def _fallback_value(text: Any) -> Any:
+    """The fallback typed into the editor: JSON, numbers and true/false keep their type, anything else stays text."""
+    if not isinstance(text, str):
+        return text
+    stripped = text.strip()
+    try:
+        return json.loads(stripped) if stripped else ""
+    except ValueError:
+        return text
 
 
 def _bounded_int(value: Any, default: int, low: int, high: int) -> int:
@@ -239,9 +253,9 @@ class WorkflowEngine:
             context.append_log(log)
 
             if log.status == NodeStatus.FAILED:
-                if _node_settings(node).get("on_error") == "continue":
-                    # shortcut: only the main path honours "continue"; a failing node inside a Loop body still stops the run
-                    node_output = {"error": log.error, "failed": True}
+                handoff = self._failure_handoff(node, log)
+                if handoff is not None:
+                    node_output = handoff
                     context.store_output(node.id, node_output)
                 else:
                     overall_status = "failed"
@@ -313,25 +327,39 @@ class WorkflowEngine:
         t0 = time.monotonic()
 
         logger.info("▶ Executing node %s (%s) config=%s", node.id, node.type, resolved_config)
-        # Error handling: retry transient failures (rate limits, timeouts); the node's own setting beats the workspace's
+        # Error handling. The workspace default retries only errors that can be temporary (rate limits, timeouts,
+        # network, server); a node that asks to "retry if this step fails" is retried on any error, up to its own limit.
         max_attempts = 1 + max(0, int(context.retry_attempts or 0))
+        explicit_retry = bool(settings.get("retry_on_fail"))
         fixed_wait: Optional[float] = None
-        if settings.get("retry_on_fail"):
+        if explicit_retry:
             max_attempts = _bounded_int(settings.get("max_tries"), 3, 1, 5)
             fixed_wait = _bounded_int(settings.get("wait_ms"), 1000, 0, 60000) / 1000
+        timeout_s = _bounded_int(settings.get("timeout_s"), 0, 0, 600)   # 0 = no limit of its own (the run's limit still applies)
+
+        error: Optional[str] = None
+        output: Dict[str, Any] = {}
+        attempt = 0
         for attempt in range(1, max_attempts + 1):
             try:
-                output = await node_instance.execute(resolved_config, prev_output, context)
+                call = node_instance.execute(resolved_config, prev_output, context)
+                output = await (asyncio.wait_for(call, timeout=timeout_s) if timeout_s else call)
+                error = None
                 break
+            except asyncio.TimeoutError:
+                error = f"The step timed out after {timeout_s}s" if timeout_s else "The step timed out"
             except NodeExecutionError as exc:
                 error = str(exc)
             except Exception as exc:
                 logger.exception("Unexpected error in node %s (%s)", node.id, node.type)
                 error = f"Unexpected error: {exc}"
-            if attempt < max_attempts:
+            if attempt < max_attempts and (explicit_retry or classify_error(error, node.type).retryable):
                 logger.warning("Node %s failed (attempt %d/%d): %s — retrying", node.id, attempt, max_attempts, error)
                 await asyncio.sleep(fixed_wait if fixed_wait is not None else RETRY_BACKOFF_SECONDS * attempt)
-        else:
+                continue
+            break
+
+        if error is not None:
             duration_ms = (time.monotonic() - t0) * 1000
             log = NodeLog(
                 node_id=node.id,
@@ -344,7 +372,8 @@ class WorkflowEngine:
                 input=prev_output,
                 output={},
                 error=error,
-                attempts=max_attempts,
+                attempts=attempt,
+                error_info=classify_error(error, node.type).to_dict(),
             )
             return {}, log
 
@@ -367,6 +396,25 @@ class WorkflowEngine:
             attempts=attempt,
         )
         return output, log
+
+    @staticmethod
+    def _failure_handoff(node: "WorkflowNode", log: NodeLog) -> Optional[Dict[str, Any]]:
+        """What a failed step passes on when the user chose not to stop the run, or None to stop it.
+
+        "continue" hands on the error; "fallback" also hands on the user's fallback value as `result`.
+        The failure stays on record either way (log status, analytics, alert).
+        """
+        settings = _node_settings(node)
+        mode = settings.get("on_error")
+        if mode not in ("continue", "fallback"):
+            return None
+        handoff: Dict[str, Any] = {"error": log.error, "failed": True,
+                                   "error_category": (log.error_info or {}).get("category")}
+        if mode == "fallback":
+            handoff["result"] = _fallback_value(settings.get("fallback_value"))
+            handoff["fallback"] = True
+            log.fallback_used = True
+        return handoff
 
     async def _execute_loop_body(
         self,
@@ -409,10 +457,16 @@ class WorkflowEngine:
                     continue
 
                 node_output, log = await self._execute_node(node, prev_output, context)
-                context.append_log(log)
 
                 if log.status == NodeStatus.FAILED:
-                    return False, log.error
+                    handoff = self._failure_handoff(node, log)
+                    context.append_log(log)
+                    if handoff is None:
+                        return False, log.error
+                    node_output = handoff
+                    context.store_output(node.id, node_output)
+                else:
+                    context.append_log(log)
 
                 next_nodes = self._resolve_next(node.id, node_output, outgoing)
                 for next_id in next_nodes:

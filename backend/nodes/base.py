@@ -93,6 +93,8 @@ class NodeLog(BaseModel):
     output: Dict[str, Any] = {}
     error: Optional[str] = None
     attempts: int = 1  # >1 when the node was retried after a failure
+    error_info: Optional[Dict[str, Any]] = None   # category, title, explanation, suggestion (executor/errors.py)
+    fallback_used: bool = False                   # the step failed and its fallback value was handed on
 
 
 # ---------------------------------------------------------------------------

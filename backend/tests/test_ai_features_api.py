@@ -149,7 +149,7 @@ def test_assistant_answers_with_the_node_catalog_in_its_prompt(env, monkeypatch)
     reply = env.as_("user").post("/api/v1/ai/assist", json={"question": "how do I start a flow from a form?",
                                                               "current_state": {"nodes": []}})
     assert reply.json()["answer"] == "Use the Webhook node."
-    assert "- Webhook [Triggers] TRIGGER" in seen["system"] and "current workflow" in seen["system"]
+    assert "- Webhook [Triggers] TRIGGER" in seen["system"] and "THE USER'S WORKFLOW" in seen["system"]
 
 
 # ---------------------------------------------------------------------------

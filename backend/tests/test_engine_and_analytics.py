@@ -308,7 +308,7 @@ def test_on_error_continue_keeps_the_run_going_and_exposes_the_error():
     result, ctx = _run_with_settings({"on_error": "continue"}, node_type="Boom")
     assert result.status == "completed"
     assert ctx.variables["order"] == ["after"]                       # the next node still ran
-    assert ctx.node_outputs["f"] == {"error": "kaboom", "failed": True}
+    assert ctx.node_outputs["f"] == {"error": "kaboom", "failed": True, "error_category": "unknown"}
     assert [log.status.value for log in result.logs if log.node_id == "f"] == ["failed"]   # the failure is still on record
 
 

@@ -71,6 +71,21 @@ export interface McpTool {
   inputSchema: { type?: string; properties?: Record<string, any>; required?: string[] };
 }
 
+export interface AssistContext {
+  state?: unknown;
+  variables?: Record<string, unknown>;
+  lastRun?: unknown;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  executionId?: string;
+}
+
+export interface AssistReply {
+  answer: string;
+  problems?: string[];
+  /** "summary" when no AI model could be reached and the answer is a plain description of the workflow */
+  source?: 'model' | 'summary';
+}
+
 export const aiToolsApi = {
   status: () => apiClient.get<AiStatus>('/api/v1/ai/status').then((r) => r.data),
 
@@ -81,9 +96,17 @@ export const aiToolsApi = {
   generateWorkflow: (prompt: string) =>
     apiClient.post<GeneratedWorkflow>('/api/v1/ai/generate-workflow', { prompt }, { timeout: 330_000 }).then((r) => r.data),
 
-  assist: (question: string, currentState?: unknown) =>
+  /** Ask about a workflow: what is on the canvas, its variables and last run, the chat so far, or a past run by id. */
+  assist: (question: string, ctx: AssistContext = {}) =>
     apiClient
-      .post<{ answer: string }>('/api/v1/ai/assist', { question, current_state: currentState ?? null }, { timeout: 330_000 })
+      .post<AssistReply>('/api/v1/ai/assist', {
+        question,
+        current_state: ctx.state ?? null,
+        variables: ctx.variables ?? null,
+        last_run: ctx.lastRun ?? null,
+        history: ctx.history ?? null,
+        execution_id: ctx.executionId ?? null,
+      }, { timeout: 330_000 })
       .then((r) => r.data),
 
   mcp: {
