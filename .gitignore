@@ -73,3 +73,6 @@ backend/create_env.py
 
 # Firebase emulator logs
 *-debug.log
+
+# Environment files exported from Render/Vercel contain secrets
+*.env
